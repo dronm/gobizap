@@ -1,0 +1,34 @@
+// This file is generated from template
+// src/templates/permissions.sql.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+/*
+-- If this is the first time you execute the script, uncomment these lines
+-- to create table and insert row
+CREATE TABLE IF NOT EXISTS permissions (
+    rules json NOT NULL
+)
+WITH (
+    OIDS = FALSE
+)
+TABLESPACE pg_default;
+
+ALTER TABLE public.permissions OWNER TO ;
+
+INSERT INTO permissions VALUES ('{"admin":{}}');
+*/
+
+UPDATE permissions SET rules = '{
+	{{#ROLES}}
+	{{#NOT_FIRST}},{{/NOT_FIRST}}"{{ID}}":{
+		{{#CONTROLLERS}}
+		{{#NOT_FIRST}},{{/NOT_FIRST}}"{{ID}}":{
+			{{#METHODS}}
+			{{#NOT_FIRST}},{{/NOT_FIRST}}"{{ID}}":{{ALLOWED}}
+			{{/METHODS}}
+		}
+		{{/CONTROLLERS}}
+	}
+	{{/ROLES}}
+}';

@@ -1,0 +1,17 @@
+{
+	"goFormatCommand": "gofmt -w",
+	"initDefValues":{
+		"enums":{
+			"userRole": {"id": "admin", "descr": "Администратор"},
+			"userLocale": {"id": "ru", "descr": "Русский"}
+		},
+		"timeZone": {"name": "Asia/Yekaterinburg", "descr": "Азия/Екатеринбург", "offset": "+02:00"},
+		"userName":"admin",
+		"userPwd":"123456",			
+		"db":{
+			"superuser":"postgres",
+			"host":"localhost:5432",
+			"schema":"public"	
+		}
+	}
+}

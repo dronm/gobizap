@@ -1,0 +1,22 @@
+
+package models
+
+// This file is generated from template
+// src/models/Model.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	{{#ENUMS_EXIST}}"{{APP_NAME}}/enums"{{/ENUMS_EXIST}}	
+	"gobizap/fields"
+)
+
+type {{ID}} struct {
+	{{#FIELDS}}
+	{{NAME}} {{TYPE}} `json:"{{ID}}"{{#LEN}} length:{{LEN}}{{/LEN}}{{#REQ}} required:"{{REQ}}"{{/REQ}}{{#PK}} primaryKey:"{{PK}}"{{/PK}}{{#AI}} autoInc:"true"{{/AI}}{{#ALIAS}} alias:"{{ALIAS}}"{{/ALIAS}}{{#PREC}} precision:"{{PREC}}"{{/PREC}}`
+	{{/FIELDS}}
+}
+
+type {{ID}}_argv struct {
+	Argv *{{ID}} `json:"argv"`	
+}

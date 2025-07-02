@@ -1,0 +1,76 @@
+package controllers
+
+// This file is generated from template
+// src/templates/ControllerImp.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	{{#REFLECT_PKG}}"reflect"{{/REFLECT_PKG}}	
+	
+	"{{APP_NAME}}/models"
+	
+	"gobizap"
+	{{#ENC_JSON_PKG}}
+	"gobizap/srv"
+	"gobizap/socket"
+	"gobizap/response"	
+	{{/ENC_JSON_PKG}}
+)
+
+{{#INSERT}}
+//Method_implementation_start:insert
+func (pm *{{ID}}_Controller_insert) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.InsertOnArgs(app, pm, resp, sock, rfltArgs, app.GetMD().Models["{{ID}}"], &models.{{ID}}_keys{}, sock.GetPresetFilter("{{ID}}"))	
+}
+//Method_implementation_end:insert
+{{/INSERT}}
+
+{{#DELETE}}
+//Method_implementation_start:delete
+func (pm *{{ID}}_Controller_delete) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.DeleteOnArgKeys(app, pm, resp, sock, rfltArgs, app.GetMD().Models["{{ID}}"], sock.GetPresetFilter("{{ID}}"))	
+}
+//Method_implementation_end:delete
+{{/DELETE}}
+
+{{#GET_OBJECT}}
+//Method_implementation_start:get_object
+func (pm *{{ID}}_Controller_get_object) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.GetObjectOnArgs(app, resp, rfltArgs, app.GetMD().Models["{{GET_OBJECT}}"], &models.{{GET_OBJECT}}{}, sock.GetPresetFilter("{{GET_OBJECT}}"))	
+}
+//Method_implementation_end:get_object
+{{/GET_OBJECT}}
+
+{{#GET_LIST}}
+//Method_implementation_start:get_list
+func (pm *{{ID}}_Controller_get_list) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.GetListOnArgs(app, resp, rfltArgs, app.GetMD().Models["{{GET_LIST}}"], &models.{{GET_LIST}}{}, sock.GetPresetFilter("{{GET_LIST}}"))	
+}
+//Method_implementation_end:get_list
+{{/GET_LIST}}
+
+{{#UPDATE}}
+//Method_implementation_start:update
+func (pm *{{ID}}_Controller_update) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.UpdateOnArgs(app, pm, resp, sock, rfltArgs, app.GetMD().Models["{{ID}}"], sock.GetPresetFilter("{{ID}}"))	
+}
+//Method_implementation_end:update
+{{/UPDATE}}
+
+{{#COMPLETE}}
+//Method_implementation_start:complete
+//Method implemenation complete
+func (pm *{{ID}}_Controller_complete) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	return gobizap.CompleteOnArgs(app, resp, rfltArgs, app.GetMD().Models["{{COMPLETE}}"], &models.{{COMPLETE}}{}, sock.GetPresetFilter("{{COMPLETE}}"))	
+}
+//Method_implementation_start:complete
+{{/COMPLETE}}
+
+{{#METHODS}}
+//Method_implementation_start:{{METHOD_ID}}
+func (pm *{{ID}}_Controller_{{METHOD_ID}}) Run(app gobizap.Applicationer, serv srv.Server, sock socket.ClientSocketer, resp *response.Response, rfltArgs reflect.Value) error {
+	//
+}
+//Method_implementation_end:{{METHOD_ID}}
+{{/METHODS}}

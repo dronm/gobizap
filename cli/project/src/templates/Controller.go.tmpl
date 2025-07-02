@@ -1,0 +1,252 @@
+package controllers
+
+// This file is generated from template
+// src/templates/ControllerImp.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	{{#REFLECT_PKG}}"reflect"{{/REFLECT_PKG}}	
+	{{#ENC_JSON_PKG}}"encoding/json"{{/ENC_JSON_PKG}}
+	
+	{{#INCL_MODELS}}"{{APP_NAME}}/models"{{/INCL_MODELS}}
+	
+	"gobizap"
+	{{#REFLECT_PKG}}"gobizap/fields"{{/REFLECT_PKG}}
+	{{#GET_LIST}}"gobizap/model"{{/GET_LIST}}
+)
+
+//Controller type
+type {{ID}}_Controller struct {
+	gobizap.Base_Controller
+}
+
+// NewController_{{ID}} creates a new controller instance.
+func NewController_{{ID}}() *{{ID}}_Controller{
+	c := &{{ID}}_Controller{gobizap.Base_Controller{ID: "{{ID}}", PublicMethods: make(gobizap.PublicMethodCollection)}}	
+	{{#DELETE_OR_GET_OBJECT}}keys_fields := fields.GenModelMD(reflect.ValueOf(models.{{ID}}_keys{})){{/DELETE_OR_GET_OBJECT}}
+	
+	{{#INSERT}}
+	//Method_description_start:insert
+	c.PublicMethods["insert"] = &{{ID}}_Controller_insert{
+		gobizap.Base_PublicMethod{
+			ID: "insert",
+			Fields: fields.GenModelMD(reflect.ValueOf(models.{{ID}}{})),
+			EventList: gobizap.PublicMethodEventList{"{{ID}}.insert"},
+		},
+	}
+	//Method_description_end:insert
+	{{/INSERT}}
+	
+	{{#DELETE}}
+	//Method_description_start:delete
+  c.PublicMethods["delete"] = &{{ID}}_Controller_delete{
+		gobizap.Base_PublicMethod{
+			ID: "delete",
+			Fields: keys_fields,
+			EventList: gobizap.PublicMethodEventList{"{{ID}}.delete"},
+		},
+	}
+	//Method_description_end:delete
+	{{/DELETE}}
+	
+	{{#UPDATE}}
+	//Method_description_start:delete
+	c.PublicMethods["update"] = &{{ID}}_Controller_update{
+		gobizap.Base_PublicMethod{
+			ID: "update",
+			Fields: fields.GenModelMD(reflect.ValueOf(models.{{ID}}_old_keys{})),
+			EventList: gobizap.PublicMethodEventList{"{{ID}}.update"},
+		},
+	} 
+	//Method_description_end:delete
+	{{/UPDATE}}
+	
+	{{#GET_OBJECT}} 
+	//Method_description_start:get_object
+	c.PublicMethods["get_object"] = &{{ID}}_Controller_get_object{
+		gobizap.Base_PublicMethod{
+			ID: "get_object",
+			Fields: keys_fields,
+		},
+	} 
+	//Method_description_end:get_object
+	{{/GET_OBJECT}}
+	
+	{{#GET_LIST}} 
+	//Method_description_start:get_list
+	c.PublicMethods["get_list"] = &{{ID}}_Controller_get_list{
+		gobizap.Base_PublicMethod{
+			ID: "get_list",
+			Fields: model.Cond_Model_fields,
+		},
+	}
+	//Method_description_end:get_list
+	{{/GET_LIST}}
+	
+	{{#COMPLETE}}
+	//Method_description_start:complete
+	c.PublicMethods["complete"] = &{{ID}}_Controller_complete{
+		gobizap.Base_PublicMethod{
+			ID: "complete",
+			Fields: fields.GenModelMD(reflect.ValueOf(models.{{ID}}_complete{})),
+		},
+	}
+	//Method_description_end:complete
+	{{/COMPLETE}}
+			
+	{{#METHODS}}
+	//Method_description_start:{{METHOD_ID}}
+	c.PublicMethods["{{METHOD_ID}}"] = &{{ID}}_Controller_{{METHOD_ID}}{
+		gobizap.Base_PublicMethod{
+			ID: {{METHOD_ID}},
+			Fields: fields.GenModelMD(reflect.ValueOf(models.{{ID}}_{{METHOD_ID}}{})),
+			{{#METHOD_EVENT}}EventList: gobizap.PublicMethodEventList{"{{ID}}.{{METHOD_ID}}"},{{/METHOD_EVENT}}
+		},
+	}	
+	//Method_description_end:{{METHOD_ID}}
+	{{/METHODS}}
+	
+	return c
+}
+
+{{#DELETE_OR_GET_OBJECT}}
+type {{ID}}_Controller_keys_argv struct {
+	Argv models.{{ID}}_keys `json:"argv"`	
+}
+{{/DELETE_OR_GET_OBJECT}}
+
+{{#INSERT}}
+//Method_structure_start:insert
+type {{ID}}_Controller_:insert struct {
+	gobizap.Base_PublicMethod
+}
+
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_insert) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:insert
+{{/INSERT}}
+
+{{#DELETE}}
+//Method_structure_start:delete
+type {{ID}}_Controller_delete struct {
+	gobizap.Base_PublicMethod
+}
+
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_delete) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_keys_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:delete
+{{/DELETE}}
+
+{{#GET_OBJECT}}
+//Method_structure_start:get_object
+type {{ID}}_Controller_get_object struct {
+	gobizap.Base_PublicMethod
+}
+
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_get_object) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_keys_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:get_object
+{{/GET_OBJECT}}
+
+{{#GET_LIST}}
+//Method_structure_start:get_list
+type {{ID}}_Controller_get_list struct {
+	gobizap.Base_PublicMethod
+}
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_get_list) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &model.Controller_get_list_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:get_list
+{{/GET_LIST}}
+
+{{#UPDATE}}
+//Method_structure_start:update
+type {{ID}}_Controller_update struct {
+	gobizap.Base_PublicMethod
+}
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_update) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_old_keys_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:update
+{{/UPDATE}}
+
+{{#COMPLETE}}
+//Method_structure_start:complete
+type {{ID}}_Controller_complete struct {
+	gobizap.Base_PublicMethod
+}
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_complete) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_complete_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:complete
+{{/COMPLETE}}
+{{#METHODS}}
+//Method_structure_start:{{METHOD_ID}}
+type {{ID}}_Controller_{{METHOD_ID}} struct {
+	gobizap.Base_PublicMethod
+}
+//Public method Unmarshal to structure
+func (pm *{{ID}}_Controller_{{METHOD_ID}}) Unmarshal(payload []byte) (reflect.Value, error) {
+	var res reflect.Value
+	argv := &models.{{ID}}_{{METHOD_ID}}_argv{}
+		
+	if err := json.Unmarshal(payload, argv); err != nil {
+		return res, err
+	}	
+	res = reflect.ValueOf(&argv.Argv).Elem()	
+	return res, nil
+}
+//Method_structure_end:{{METHOD_ID}}
+{{/METHODS}}

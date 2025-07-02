@@ -1,0 +1,14 @@
+Vim:
+X 1) Clipboard
+2) Open relative path under selection
+3) Somehow manage sql migrations
+4) Insert code snippets
+    - xml: models, controlers, fields, public methods
+    - javascript: Dialog, List, EditRef, FiormList, FormDialog,
+    - go: controller methods(?)
+
+
+  Project:
+  1) Define structure
+  2) Templates
+  3) Building process

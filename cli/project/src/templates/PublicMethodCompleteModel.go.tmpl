@@ -1,0 +1,33 @@
+package models
+
+
+// This file is generated from template
+// src/models/PublicMethodCompleteModel.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	"reflect"
+	
+	"gobizap/model"
+	"gobizap/fields"
+)
+
+type {{ID}}_argv struct {
+	Argv *{{ID}} `json:"argv"`	
+}
+
+//Exported model metadata
+var {{ID}}_md fields.FieldCollection
+
+func {{ID}}_Model_init() {	
+	{{ID}}_md = fields.GenModelMD(reflect.ValueOf({{ID}}{}))
+}
+
+//
+type {{ID}} struct {
+	model.Complete_Model
+	{{#FIELDS}}
+	{{NAME}} {{TYPE}} `json:"{{ID}}" matchField:"true"{{#LEN}} length:{{LEN}}{{/LEN}} required:"true"{{#ALIAS}} alias:"{{ALIAS}}"{{/ALIAS}}{{#PREC}} precision:"{{PREC}}"{{/PREC}}`
+	{{/FIELDS}}
+}

@@ -1,0 +1,57 @@
+{
+"logLevel":"debug",
+"debugQueries": true,
+"jsDebug":true,
+"db":{
+	"primary":"postgresql://nails:221d207e625043a9889e45d7b4a5a9e1@192.168.1.177:5432/nails",
+	"secondaries":{
+		"s1":"postgresql://nails:221d207e625043a9889e45d7b4a5a9e1@192.168.1.177:5432/nails"
+	}
+},
+"wsServerEnabled":true,
+"wsServer":"192.168.1.3:59001",
+"wsExtPort":59001,
+"httpServer":"192.168.1.3:59000",
+"eventServerEnabled":true,
+"session":{
+	"encKey":"26dfaf82803911eeb40cef07a0084ffe2f6b90e4803911ee9608f3c5bba5ae89",
+	"maxLifeTime":0,
+	"maxIdleTime":0,
+	"destroy_all_time":""
+},
+"reportErrors":true,
+"appId":"nails",
+"templateDir":"/home/andrey/go/osbe/xslt",
+"httpDir":"/home/andrey/www/htdocs/nails",
+"techMail":"katrenplus@mail.ru",
+"author":"Andrey Mikhalevich",
+"dadataKey":"035115efcd342f17c188df59779653806d9d6424",
+"fop":"/usr/bin/fop/fop",
+"fopConf":"/usr/bin/fop/conf/conf.xml",
+"php":"php",
+"phpDocConverter":"/home/andrey/www/htdocs/word_tmpl/convert_tmpl.php",
+"redis":{
+	"connect":"redis://nails:f328c311db539dc1a47e0f0c98969174b2f7d1715bf47b4740120120c3fe23f1@192.168.1.177:63079/0",
+	"namespace":"nails"
+	},
+"notifierParams":{
+	"host":"http://178.46.157.185:56000",
+	"appName":"nails",
+	"pwd":"7a4e8ecb997c4c438347180a144d2782",
+	"callbackKey":"123456"
+	},
+"qrExtractorParams":{
+	"host":"http://85.15.188.189:56100",
+	"appName":"nails",
+	"pwd":"7a4e8ecb997c4c438347180a144d2782",
+	"callbackKey":"123456"
+	},	
+"yClients":{
+	"login":"89634523522",
+	"pwd":"123456",
+	"partnerToken":"d82sz7b8f8tjm93twmf5",
+	"companyId":781898,
+	"recordInfUpdateInterval":0,
+	"recordInfDoUpdate":false
+	}
+}

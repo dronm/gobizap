@@ -1,0 +1,23 @@
+package enums
+
+// This file is generated from template
+// src/templates/Enum.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	"github.com/dronm/gobizap/fields"
+)
+
+type ValEnum_{{ID}} struct {
+	fields.ValText
+}
+
+func (e *ValEnum_{{ID}}) GetValues() []string {
+	return []string{ {{#VALUES}}{{#NOT_FIRST}}, {{/NOT_FIRST}}"{{ID}}"{{/VALUES}} }
+}
+
+//func (e *ValEnum_{{ID}}) GetDescriptions() map[string]map[string]string {
+//	return make(map[string]{ {{#VALUES}}{{#NOT_FIRST}}, {{/NOT_FIRST}}"{{ID}}"{{/VALUES}} }
+//}
+

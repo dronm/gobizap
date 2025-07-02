@@ -1,0 +1,229 @@
+<!ELEMENT metadata (versions,globalFilters?,enums,models,constants?,controllers,permissions,views?,serverTemplates?,jsTemplates?,jsScripts?,cssScripts?)>
+
+<!--
+	Global attributes:
+		owner - database user
+		debug - TRUE for debug mode. In this mode js files are included as they are, but when set to FALSE JS scritps are cimpressed to 
+			one file lib.js
+			should be set to FALSE in production
+		dataSchema - database schema name. By default public
+-->
+<!ATTLIST metadata owner CDATA #REQUIRED>
+<!ATTLIST metadata debug (TRUE|FALSE) "TRUE">
+<!ATTLIST metadata dataSchema CDATA "public">
+
+
+<!-- version history
+	lastBuild tag occures only once and contains last building timestamp
+	Every version tag has dateOpen - when version was started and when it was finished
+-->
+<!ELEMENT versions (version+)>
+<!ELEMENT lastBuild (#PCDATA)>
+<!ELEMENT version (#PCDATA)>
+<!ATTLIST version dateOpen CDATA #REQUIRED>
+<!ATTLIST version dateClose CDATA #IMPLIED>
+
+<!-- Global filters are enlisted here as fields
+-->
+<!ELEMENT globalFilters (field+)>
+<!ELEMENT globalFilter EMPTY>
+<!ATTLIST globalFilter id CDATA #REQUIRED>
+
+
+<!-- package system
+-->
+<!ELEMENT packages (package+)>
+<!ELEMENT package EMPTY>
+<!ATTLIST package id CDATA #REQUIRED>
+
+
+<!-- Project enumerations
+	Every enum has values in many languages, like ru,eng
+-->
+<!ELEMENT enums (enum+)>
+<!ELEMENT enum (value+)>
+<!ELEMENT value (ru?,eng?)>
+<!ATTLIST value cmd (alt|del|add) #IMPLIED>
+<!ELEMENT ru EMPTY>
+<!ELEMENT eng EMPTY>
+<!ATTLIST ru descr CDATA #REQUIRED>
+<!ATTLIST eng descr CDATA #REQUIRED>
+<!ATTLIST enum id CDATA #REQUIRED>
+<!ATTLIST value id CDATA #REQUIRED>
+<!ATTLIST value descr CDATA #IMPLIED>
+
+
+<!ELEMENT defaultOrder (field+)>
+
+
+<!ELEMENT aggFunctions (aggFunction+)>
+<!ELEMENT aggFunction EMPTY>
+<!ATTLIST aggFunction alias CDATA #REQUIRED>
+<!ATTLIST aggFunction expr CDATA #REQUIRED>
+
+
+<!ELEMENT models (model+)>
+<!ATTLIST models limitConstant CDATA #IMPLIED>
+
+
+<!ELEMENT model (defaultOrder?,aggFunctions?,field+,index*,globalFilter?,registerAtcs?)>
+<!ATTLIST model id CDATA #REQUIRED>
+<!ATTLIST model parent (Model|ModelSQL|ModelSQLDOCT20|ModelReportSQL) "ModelSQL">
+<!ATTLIST model parentJS (ModelXML|ModelJSON) #IMPLIED>
+<!ATTLIST model dataTable CDATA #IMPLIED>
+<!ATTLIST model virtual (TRUE|FALSE) "TRUE">
+<!ATTLIST model modelType (CAT|DOC|DOCT|DOCTF|RG|RA) "CAT">
+<!ATTLIST model masterModel CDATA #IMPLIED>
+<!ATTLIST model baseModelId CDATA #IMPLIED>
+<!ATTLIST model docTypeId CDATA #IMPLIED>
+<!ATTLIST model regTypeId CDATA #IMPLIED>
+<!ATTLIST model lastRowSelectOnInit (TRUE|FALSE) #IMPLIED>
+<!ATTLIST model limitConstant CDATA #IMPLIED>
+<!ATTLIST model limitCount CDATA #IMPLIED>
+<!ATTLIST model docPerPageCount CDATA #IMPLIED>
+<!ATTLIST model calcHash (TRUE|FALSE) "FALSE">
+<!ATTLIST model period CDATA #IMPLIED>
+<!ATTLIST model cmd (alt|del|add) #IMPLIED>
+<!ATTLIST model server (TRUE|FALSE) #IMPLIED>
+<!ATTLIST model client (TRUE|FALSE) #IMPLIED>
+<!ATTLIST model activityLog (TRUE|FALSE) #IMPLIED>
+<!ATTLIST model objRef (TRUE|FALSE) #IMPLIED>
+<!ATTLIST model dataSchema CDATA #IMPLIED>
+
+
+<!ELEMENT index (field*,expression*)>
+<!ATTLIST index id CDATA #REQUIRED>
+<!ATTLIST index unique (TRUE|FALSE) #IMPLIED>
+<!ATTLIST index cmd (alt|del|add) #IMPLIED>
+<!ELEMENT expression (#PCDATA)>
+
+
+<!ELEMENT field ANY>
+<!ATTLIST field id CDATA #REQUIRED>
+<!ATTLIST field dataType (Bool|Char|String|Int|Date|Time|TimeTZ|DateTime|DateTimeTZ|Float|Text|Enum|Password|Interval|JSON|JSONB|Array|XML|GeomPolygon|GeomPoint) #IMPLIED>
+<!ATTLIST field primaryKey (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field autoInc (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field required (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field dbRequired (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field sysCol (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field display (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field alias CDATA #IMPLIED>
+<!ATTLIST field length CDATA #IMPLIED>
+<!ATTLIST field defaultValue CDATA #IMPLIED>
+<!ATTLIST field refTable CDATA #IMPLIED>
+<!ATTLIST field refField CDATA #IMPLIED>
+<!ATTLIST field unique (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field enumId CDATA #IMPLIED>
+<!ATTLIST field precision CDATA #IMPLIED>
+<!ATTLIST field regFieldType (dimension|fact) #IMPLIED>
+<!ATTLIST field cmd (alt|del|add) #IMPLIED>
+<!ATTLIST field sortDirect (ASC|DESC) #IMPLIED>
+<!ATTLIST field retAfterInsert (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field noValueOnCopy (TRUE|FALSE) #IMPLIED>
+<!ATTLIST field arrayType CDATA #IMPLIED>
+
+
+<!ELEMENT registerAtcs (register*)>
+<!ELEMENT register EMPTY>
+<!ATTLIST register id CDATA #REQUIRED>
+
+
+<!ELEMENT constants (constant+)>
+<!ELEMENT constant EMPTY>
+<!ATTLIST constant id CDATA #REQUIRED>
+<!ATTLIST constant name CDATA #REQUIRED>
+<!ATTLIST constant descr CDATA #REQUIRED>
+<!ATTLIST constant dataType (Bool|Char|String|Int|Date|Time|TimeTZ|DateTime|DateTimeTZ|Float|Text|Enum|Password|Interval|JSON|JSONB|Array|XML|GeomPolygon|GeomPoint) #REQUIRED>
+<!ATTLIST constant refTable CDATA #IMPLIED>
+<!ATTLIST constant refField CDATA #IMPLIED>
+<!ATTLIST constant autoload (TRUE|FALSE) "TRUE">
+<!ATTLIST constant defaultValue CDATA #IMPLIED>
+<!ATTLIST constant length CDATA #IMPLIED>
+<!ATTLIST constant ctrl_class CDATA #IMPLIED>
+<!ATTLIST constant view_class CDATA #IMPLIED>
+<!ATTLIST constant cmd (alt|del|add) #IMPLIED>
+
+
+<!ELEMENT controllers (controller+)>
+<!ELEMENT controller (publicMethod+)>
+<!ATTLIST controller id CDATA #REQUIRED>
+<!ATTLIST controller parentId CDATA #IMPLIED>
+
+<!-- Where search for controller file: user project dir or framework, defaul framework-->
+<!ATTLIST controller parentType (user|fw) #IMPLIED>
+
+<!ATTLIST controller parentIdJS CDATA #IMPLIED>
+<!ATTLIST controller server (TRUE|FALSE) #IMPLIED>
+<!ATTLIST controller client (TRUE|FALSE) #IMPLIED>
+<!ATTLIST controller processable (TRUE|FALSE) #IMPLIED>
+<!ATTLIST controller details (TRUE|FALSE) #IMPLIED>
+<!ATTLIST controller cmd (alt|del|add) #IMPLIED>
+
+
+<!ELEMENT publicMethod (field*)>
+<!ATTLIST publicMethod id CDATA #REQUIRED>
+<!ATTLIST publicMethod modelId CDATA #IMPLIED>
+<!ATTLIST publicMethod patternFieldId CDATA #IMPLIED>
+<!ATTLIST publicMethod condFields (TRUE|FALSE) #IMPLIED>
+<!ATTLIST publicMethod paginationFields (TRUE|FALSE) #IMPLIED>
+<!ATTLIST publicMethod requestType (post|get) #IMPLIED>
+<!ATTLIST publicMethod publishEvent (TRUE|FALSE) #IMPLIED>
+
+
+<!ELEMENT permissions (permission+)>
+<!ELEMENT permission EMPTY>
+<!ATTLIST permission type (allow|revoke) #REQUIRED>
+<!ATTLIST permission controllerId CDATA #REQUIRED>
+<!ATTLIST permission methodId CDATA #REQUIRED>
+<!ATTLIST permission roleId CDATA #REQUIRED>
+
+
+<!ELEMENT views (view+)>
+<!ELEMENT view EMPTY>
+<!ATTLIST view id CDATA #REQUIRED>
+<!ATTLIST view c CDATA #IMPLIED>
+<!ATTLIST view t CDATA #IMPLIED>
+<!ATTLIST view f CDATA #IMPLIED>
+<!ATTLIST view section CDATA #REQUIRED>
+<!ATTLIST view descr CDATA #REQUIRED>
+<!ATTLIST view limit (TRUE|FALSE) #IMPLIED>
+<!ATTLIST view defaultValue (TRUE|FALSE) #IMPLIED>
+<!ATTLIST view cmd (alt|del|add) #IMPLIED>
+
+
+<!ELEMENT serverTemplates (serverTemplate+)>
+<!ELEMENT serverTemplate EMPTY>
+<!ATTLIST serverTemplate id CDATA #REQUIRED>
+<!ATTLIST serverTemplate class CDATA #IMPLIED>
+
+
+<!ELEMENT jsTemplates (jsTemplate+)>
+<!ELEMENT jsTemplate EMPTY>
+<!ATTLIST jsTemplate id CDATA #REQUIRED>
+<!ATTLIST jsTemplate file CDATA #REQUIRED>
+
+
+<!ELEMENT sqlScripts (sqlScript+)>
+<!ELEMENT sqlScript EMPTY>
+<!ATTLIST sqlScript file CDATA #REQUIRED>
+
+
+<!ELEMENT jsScripts (jsScript+)>
+<!ELEMENT jsScript EMPTY>
+<!ATTLIST jsScript file CDATA #REQUIRED>
+<!ATTLIST jsScript compressed (TRUE|FALSE) #IMPLIED>
+<!ATTLIST jsScript jsDoc (TRUE|FALSE) #IMPLIED>
+<!ATTLIST jsScript standalone (TRUE|FALSE) #IMPLIED>
+<!ATTLIST jsScript version CDATA #IMPLIED>
+<!ATTLIST jsScript resource (ru|eng) #IMPLIED>
+<!ATTLIST jsScript scrType (list_view|dialog_view|edit|form|list_form) #IMPLIED>
+
+
+<!ELEMENT cssScripts (cssScript+)>
+<!ELEMENT cssScript EMPTY>
+<!ATTLIST cssScript file CDATA #REQUIRED>
+<!ATTLIST cssScript compressed (TRUE|FALSE) #IMPLIED>
+<!ATTLIST cssScript standalone (TRUE|FALSE) #IMPLIED>
+<!ATTLIST cssScript version CDATA #IMPLIED>
+
+

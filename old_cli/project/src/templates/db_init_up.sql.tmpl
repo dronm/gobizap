@@ -1,0 +1,60 @@
+-- database initialization scripts
+
+-- timezone table
+CREATE TABLE IF NOT EXISTS {{DB_SCHEMA}}.time_zone_locales
+(
+    id serial NOT NULL,
+    descr character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    name character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    offset interval NOT NULL,
+    CONSTRAINT time_zone_locales_pkey PRIMARY KEY (id)
+)
+ALTER TABLE IF EXISTS {{DB_SCHEMA}}.time_zone_locales OWNER to {{DB_USER}};
+    
+-- selected timezone
+INSERT INTO time_zone_locales (name, descr, offset) VALUES('{{TIME_ZONE_NAME}}', '{{TIME_ZONE_DESCR}}', '{{TIME_ZONE_OFFSET}}');
+
+
+-- locale type
+CREATE TYPE locales AS ENUM ('{{USER_LOCALE_ID}}');
+
+-- role type
+CREATE TYPE role_types AS ENUM ('{{USER_ROLE_ID}}');
+
+-- users table
+CREATE TABLE IF NOT EXISTS {{DB_SCHEMA}}.users
+(
+    id serial NOT NULL,
+    name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    name_full text COLLATE pg_catalog."default",
+    role_id role_types NOT NULL,
+    pwd character varying(32) COLLATE pg_catalog."default",
+    create_dt timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    banned boolean DEFAULT false,
+    time_zone_locale_id integer,
+    locale_id locales,
+    CONSTRAINT users_pkey PRIMARY KEY (id),
+    CONSTRAINT users_time_zone_locale_id_fkey FOREIGN KEY (time_zone_locale_id)
+        REFERENCES {{DB_SCHEMA}}.time_zone_locales (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+);
+ALTER TABLE IF EXISTS {{DB_SCHEMA}}.users OWNER to {{DB_USER}};
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_name_idx
+    ON public.users USING btree (lower(name::text) COLLATE pg_catalog."default" ASC NULLS LAST);
+-- Index: users_role_id_idx
+
+CREATE INDEX IF NOT EXISTS users_role_id_idx
+    ON public.users USING btree (role_id ASC NULLS LAST);
+    
+-- selected user
+INSERT INTO users
+(name, role_id, pwd, time_zone_locale_id, locale_id)
+VALUES ('{{USER}}',
+	'{{USER_ROLE_ID}}',
+	md5('{{USER_PWD}}'),
+	(SELECT id FROM time_zone_locales WHERE name = '{{TIME_ZONE_NAME}}'),
+	'{{USER_LOCALE_ID}}'
+);
+

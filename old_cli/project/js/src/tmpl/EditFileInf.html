@@ -1,0 +1,22 @@
+<span id="{{id}}">
+	{{#file_uploaded}}
+	<i id="{{id}}-pic" class="glyphicon glyphicon-ok" title="Файл прикреплен к заказу"></i>	
+	{{/file_uploaded}}
+	
+	{{#file_not_uploaded}}
+	<i id="{{id}}-pic" class="fa fa-spinner fa-spin" title="Загрузка файла..."></i>
+	{{/file_not_uploaded}}
+	
+	<img id="{{id}}-preview" class="{{IMG_CLASS}}">
+	</img>
+	{{#show_href}}	
+	<a id="{{id}}-href" file_id="{{id}}" href="#" title="Скачать файл" file_uploaded="{{file_uploaded}}" class="uploadedFile">
+		{{name}}({{file_size_formatted}})
+	</a>
+	{{/show_href}}
+	{{#file_deletable}}
+	<div id="{{id}}-del" class="btn btn-sm fileDeleteBtn" title="Удалить файл" file_id="{{id}}" file_uploaded="{{file_uploaded}}">
+		<i class="glyphicon glyphicon-trash"></i>	
+	</div>
+	{{/file_deletable}}
+</span>

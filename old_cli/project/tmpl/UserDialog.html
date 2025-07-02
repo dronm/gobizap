@@ -1,0 +1,64 @@
+<div id="{{id}}">
+	<div id="{{id}}:cmd-cont">
+		<div id="{{id}}:cmdOk"/>
+		<div id="{{id}}:cmdSave"/>
+		<div id="{{id}}:cmdResetPwd" title="Назначить пользователю новый пароль и отправить СМС" options="{'caption':'Сменить пароль'}"/>
+		<div id="{{id}}:cmdCancel"/>
+	</div>
+
+	<div class="row">
+		<h1 class="page-header">Карточка пользователя</h1>
+	</div>
+	
+	<div class="tabbable">
+		<ul class="nav nav-tabs nav-tabs-highlight">
+			<li class="active">
+				<a href="#profile" data-toggle="tab" aria-expanded="true">Профиль</a>
+			</li>
+			<li>
+				<a href="#permissions" data-toggle="tab" aria-expanded="false">Права, доступ</a>
+			</li>
+			<li>
+				<a href="#activity" data-toggle="tab" aria-expanded="false">Активность</a>
+			</li>
+		</ul>
+	</div>
+		
+	<!-- Tab panes -->
+	<div class="tab-content dialogForm">	
+		<div class="tab-pane fade in active" id="profile">
+			<div class="panel panel-body userDialogTab">
+				<div class="panel-heading">
+					<h4 class="panel-title">Данные пользователя</h4>
+				</div>
+				<div id="{{id}}:name"/>
+				<div id="{{id}}:name_full"/>
+				
+				<h6 class="panel-title">Контакты</h6>
+				<div id="{{id}}:contacts_list"/>
+			</div>
+		</div>
+		<div class="tab-pane fade" id="permissions">
+			<div class="panel panel-body userDialogTab">
+				<div class="panel-heading">
+					<h4 class="panel-title">Права пользователя</h4>
+				</div>
+				<div id="{{id}}:role"/>	
+				<div id="{{id}}:banned"/>
+			</div>
+		</div>
+		<div class="tab-pane fade" id="activity">
+			<div class="panel panel-body userDialogTab">
+				<div class="panel-heading">
+					<h4 class="panel-title">Активность пользователя</h4>		
+				</div>
+				
+				<h6 class="panel-title">Устройства входа</h6>
+				<div id="{{id}}:login_device_list"/>
+				
+				<h6 class="panel-title">Сеансы</h6>
+				<div id="{{id}}:login_list"/>
+			</div>
+		</div>
+	</div>	
+</div>	

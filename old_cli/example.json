@@ -1,0 +1,5 @@
+{
+	"userRole": {"id": "admin", "descr": "Administrator"},
+	"userLocale": {"id": "en", "descr": "English"},
+	"timeZone": {"name": "UTC", "descr": "UTC", "offset": "00:00"}
+}

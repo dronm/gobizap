@@ -1,0 +1,33 @@
+-- Database initialization migration up
+-- 
+-- This code should be executed with superuser privileges.
+-- It will not be saved in migration folder, just shone on screen
+-- to be executed manually
+--
+DO $$
+BEGIN
+   IF EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = '{{DB_USER}}') THEN
+      RAISE NOTICE 'Role "{{DB_USER}}" already exists. Skipping.';
+   ELSE
+      CREATE USER {{DB_USER}} WITH PASSWORD '{{DB_PASSWORD}}';
+   END IF;
+END
+$$;
+
+CREATE DATABASE {{DB_NAME}} OWNER {{DB_USER}};
+
+GRANT ALL PRIVILEGES ON DATABASE {{DB_NAME}} TO {{DB_USER}};
+GRANT SELECT ON ALL TABLES IN SCHEMA {{DB_SCHEMA}} TO {{DB_USER}};
+
+-- pgcrypto extension is used for session storing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- pg_trgm extension might be used in searching
+CREATE EXTENSION IF NOT EXISTS pg_trgm; 
+
+{{#DB_SPACIAL}}
+-- spacial database support
+CREATE EXTENSION IF NOT EXISTS postgis; 
+{{/DB_SPACIAL}}

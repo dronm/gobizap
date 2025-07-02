@@ -1,0 +1,37 @@
+@page {
+    size: 21cm 29.7cm;
+    margin: 0mm 0mm 0mm 0mm; /* change the margins as you want them to be. */
+}
+@media all{
+table {
+	border-collapse: collapse;
+	/*
+	border: solid #000;
+	border-width: 0 1px 1px 0;
+	border-spacing: 0;
+	font-size: 1.0em;
+	padding: 0;
+	*/
+}
+/*
+th, td {
+	border: solid #000;
+	border-width: 1px 1px;
+	line-height:1em;
+	margin: 0;
+	padding:0.2em;
+	border-spacing: 0;
+}
+*/
+.grid_sys_col{
+	display:none;
+}
+
+.hidden{
+	display:none;
+}
+}
+
+@media print{
+.pagebreak { page-break-before: always; } /* page-break-after works, as well*/
+}

@@ -1,0 +1,82 @@
+package models
+
+// This file is generated from template
+// src/templates/Model.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	"reflect"	
+	{{#ENUMS_EXIST}}"{{APP_NAME}}/enums"{{/ENUMS_EXIST}}	
+	"github.com/dronm/gobizap/fields"
+	"github.com/dronm/gobizap/model"
+)
+
+type {{ID}} struct {
+	{{#FIELDS}}
+	{{NAME}} {{TYPE}} `json:"{{ID}}"{{#LEN}} length:{{LEN}}{{/LEN}}{{#REQ}} required:"{{REQ}}"{{/REQ}}{{#PK}} primaryKey:"{{PK}}"{{/PK}}{{#AI}} autoInc:"true"{{/AI}}{{#NAME_ALIAS}} alias:"{{NAME_ALIAS}}"{{/NAME_ALIAS}}{{#PREC}} precision:"{{PREC}}"{{/PREC}}{{#ORD}} defOrder:"{{ORD}}"{{/ORD}}{{#SYS_COL}} sysCol:"true"{{/SYS_COL}}{{#noValueOnCopy}} noValueOnCopy:"true"{{/noValueOnCopy}}`
+	{{/FIELDS}}
+}
+
+// SetNull set all fields to null values.
+func (o *{{ID}}) SetNull() {
+	{{#FIELDS}}
+	o.{{NAME}}.SetNull()
+	{{/FIELDS}}
+}
+
+// NewModelMD_{{ID}} creates a new instance of {{ID}}_Model
+func NewModelMD_{{ID}}() *model.ModelMD{
+	return &model.ModelMD{Fields: fields.GenModelMD(reflect.ValueOf({{ID}}{})),
+		ID: "{{ID}}_Model",
+		Relation: "{{OBJECT_DATA_TABLE}}",
+		{{#AGG_FUNCTIONS}}
+		AggFunctions: []*model.AggFunction{
+			{{#AGG_FUNCTION}}&model.AggFunction{Alias: "{{ALIAS}}", Expr: "{{EXPR}}"},
+			{{/AGG_FUNCTION}}
+		},
+		{{/AGG_FUNCTIONS}}
+		{{#LIMIT_COUNT}}
+		LimitCount: {{LIMIT_COUNT}},
+		{{/LIMIT_COUNT}}		
+		{{#DOC_PER_PAGE_COUNT}}
+		DocPerPageCount: {{DOC_PER_PAGE_COUNT}},
+		{{/DOC_PER_PAGE_COUNT}}				
+	}
+}
+{{#NOT_VIRTUAL}}
+// {{ID}}_argv is an insert method structure.
+type {{ID}}_argv struct {
+	Argv *{{ID}} `json:"argv"`	
+}
+
+// {{ID}}_keys is a primary keys structure.
+type {{ID}}_keys struct {
+	{{#KEYS}}
+	{{NAME}} {{TYPE}} `json:"{{ID}}"`
+	{{/KEYS}}
+	Mode string `json:"mode" openMode:"true"` //open mode insert|copy|edit
+}
+
+// {{ID}}_keys_argv is for delete/get_object public methods.
+type {{ID}}_keys_argv struct {
+	Argv *{{ID}}_keys `json:"argv"`	
+}
+
+// {{ID}}_old_keys holds object old keys.
+// This structire is used for update method.
+type {{ID}}_old_keys struct {
+	{{#FIELDS}}
+	{{#PK}}
+	Old_{{ID}} {{TYPE}} `json:"old_{{ID}}"{{#LEN}} length:{{LEN}}{{/LEN}}{{#REQ}} required:"{{REQ}}"{{/REQ}}{{#NAME_ALIAS}} alias:"{{ALIAS}}"{{/NAME_ALIAS}}{{#PREC}} precision:"{{PREC}}"{{/PREC}}`
+	{{/PK}}
+	{{NAME}} {{TYPE}} `json:"{{ID}}"{{#LEN}} length:{{LEN}}{{/LEN}}{{#NAME_ALIAS}} alias:"{{NAME_ALIAS}}"{{/NAME_ALIAS}}{{#PREC}} precision:"{{PREC}}"{{/PREC}}`
+	{{/FIELDS}}
+}
+
+// {{ID}}_old_keys_arg is an update method structure.
+type {{ID}}_old_keys_argv struct {
+	Argv *{{ID}}_old_keys `json:"argv"`	
+}
+
+{{/NOT_VIRTUAL}}

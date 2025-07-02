@@ -1,0 +1,18 @@
+package constants
+
+// This file is generated from template
+// src/templates/Constant.go.tmpl
+// by gobizap build tool.
+// Do not modify it directly.
+
+import (
+	"gobizap"
+)
+
+type Constant_{{ID}} struct {
+	gobizap.Constant{{DATA_TYPE}}
+}
+
+func New_Constant_{{ID}}() *Constant_{{ID}} {
+	return &Constant_{{ID}}{ osbe.Constant{{DATA_TYPE}}{ID: "{{ID}}", Autoload: {{AUTOLOAD}} }}
+}
