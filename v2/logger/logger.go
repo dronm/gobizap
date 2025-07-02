@@ -11,9 +11,9 @@ type LoggerLogLevel string
 
 const (
 	LOG_LEVEL_DEBUG LoggerLogLevel = "debug"
-	LOG_LEVEL_INFO                 = "info"
-	LOG_LEVEL_WARN                 = "warn"
-	LOG_LEVEL_ERROR                = "error"
+	LOG_LEVEL_INFO  LoggerLogLevel = "info"
+	LOG_LEVEL_WARN  LoggerLogLevel = "warn"
+	LOG_LEVEL_ERROR LoggerLogLevel = "error"
 )
 
 type LogWriter struct {
@@ -64,6 +64,3 @@ func logrusLogLevel(logLevel LoggerLogLevel) logrus.Level {
 	}
 	return lvl
 }
-
-
-

@@ -11,10 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dronm/session"
-	"github.com/dronm/beton72/api"
-	"github.com/dronm/beton72/database"
-	"github.com/dronm/beton72/logger"
-	"github.com/dronm/beton72/ws"
+	"github.com/dronm/gobizap/v2/api"
+
+	"github.com/dronm/gobizap/v2/database"
+	"github.com/dronm/gobizap/v2/logger"
+	"github.com/dronm/gobizap/v2/ws"
 )
 
 const (
