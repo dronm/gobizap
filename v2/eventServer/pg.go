@@ -1,3 +1,4 @@
+// Package eventServer
 package eventServer
 
 import (
@@ -10,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/dronm/session"
 	"github.com/dronm/gobizap/v2/api"
+	"github.com/dronm/session"
 
 	"github.com/dronm/gobizap/v2/database"
 	"github.com/dronm/gobizap/v2/logger"
@@ -19,8 +20,9 @@ import (
 )
 
 const (
-	DB_ACQUIRE_CONN_WAIT     = 100
-	DB_MAX_ACQUIRE_CONN_WAIT = 60000
+	dbAcquireConnWait    = 100
+	dbMaxAcquireConnWait = 60000
+	defLoopPause         = 100
 )
 
 //---- UniqEvents -----
@@ -83,10 +85,10 @@ func (e *UniqEvents) TotalEventCount() int {
 	return len(e.m)
 }
 
-// ---- EventServer ----
+// EventServer is the main server structure.
 type EventServer struct {
-	DbPool      *pgxpool.Pool //
-	DbQuery     chan string   // for notification queries
+	DBPool      *pgxpool.Pool //
+	DBQuery     chan string   // for notification queries
 	Events      *UniqEvents   // count of unique events for db
 	LocalEvents map[string]struct{}
 
@@ -104,11 +106,16 @@ func NewEventServer(localEvents map[string]struct{}) *EventServer {
 	return &EventServer{LocalEvents: localEvents}
 }
 
+// OnNotification is called when there is a new event coming from pg.
+// Pg channel name is in Service.Method format. Servce name and method name
+// should be in PascelCase. Payload should contain an object of key-value pairs.
+// Keys must correspond to the method signature. The order of keys does matter
+// as method parameters are matched by order not by their names.
 func (s *EventServer) OnNotification(_ *pgconn.PgConn, n *pgconn.Notification) {
 	logger.Logger.Debugf("OnNotification Channel:%s, Payload:%s", n.Channel, n.Payload)
 	srvMeth := strings.Split(n.Channel, ".")
 	if len(srvMeth) < 2 {
-		logger.Logger.Errorf("OnNotification invalid service.method signature for:", n.Channel)
+		logger.Logger.Errorf("OnNotification invalid service.method signature for: %s", n.Channel)
 		return
 	}
 
@@ -122,9 +129,9 @@ func (s *EventServer) OnNotification(_ *pgconn.PgConn, n *pgconn.Notification) {
 				return
 			}
 
-			logger.Logger.Debugf("executing local service call to %s.%s with params: %v", srvMeth[0], srvMeth[1], params)
+			logger.Logger.Debugf("EventServer local service call to %s.%s with %v", srvMeth[0], srvMeth[1], params)
 
-			api.CallMethod(s.ctx, srvMeth[0], srvMeth[1], params,
+			go api.CallMethod(s.ctx, srvMeth[0], srvMeth[1], params,
 				&api.ServiceContext{DB: database.DB, Session: s.sess},
 			)
 			return
@@ -133,7 +140,7 @@ func (s *EventServer) OnNotification(_ *pgconn.PgConn, n *pgconn.Notification) {
 
 	// publish event for all client consumers
 	evPayload := fmt.Sprintf(`{"id": "%s", "params": %s}`, n.Channel, n.Payload)
-	ws.PublishEvent("", []byte(evPayload)) // send to all
+	ws.PublishEvent("", []byte(evPayload)) // send to all subscribed
 }
 
 func (s *EventServer) Start() {
@@ -142,20 +149,23 @@ func (s *EventServer) Start() {
 	s.cancelDone = make(chan struct{})
 	defer close(s.cancelDone)
 
-	s.DbQuery = make(chan string, 10)
+	s.DBQuery = make(chan string, 10)
 	s.Events = &UniqEvents{m: make(map[string]int, 0)}
 
 	if s.LocalEvents != nil {
 		s.Events.mx.Lock()
-		for evntId := range s.LocalEvents {
-			s.Events.m[evntId] = 1 // one instance only
+		for evntID := range s.LocalEvents {
+			s.Events.m[evntID] = 1 // one instance only
 		}
 		s.Events.mx.Unlock()
 	}
 
-	logger.Logger.Info("EventServer: started, loop pause: %v", s.loopPause)
+	if s.loopPause == 0 {
+		s.loopPause = defLoopPause
+	}
+	logger.Logger.Infof("EventServer: started, loop pause: %v", s.loopPause)
 
-	dbAcquireWait := DB_ACQUIRE_CONN_WAIT
+	dbAcquireWait := dbAcquireConnWait
 
 	for {
 		var conn *pgxpool.Conn
@@ -166,12 +176,12 @@ func (s *EventServer) Start() {
 			return
 		default:
 			var err error
-			conn, err = s.DbPool.Acquire(s.ctx)
+			conn, err = s.DBPool.Acquire(s.ctx)
 			if err != nil {
-				if dbAcquireWait > DB_MAX_ACQUIRE_CONN_WAIT {
-					dbAcquireWait = DB_MAX_ACQUIRE_CONN_WAIT
+				if dbAcquireWait > dbMaxAcquireConnWait {
+					dbAcquireWait = dbMaxAcquireConnWait
 				}
-				logger.Logger.Errorf("EventSrv DbPool.Acquire(): %v", err)
+				logger.Logger.Errorf("EventServer DbPool.Acquire(): %v", err)
 
 				time.Sleep(time.Duration(dbAcquireWait) * time.Millisecond)
 				dbAcquireWait = dbAcquireWait * 2
@@ -186,14 +196,14 @@ func (s *EventServer) Start() {
 
 		logger.Logger.Debug("EventSrv acquired connection")
 
-		dbAcquireWait = DB_ACQUIRE_CONN_WAIT
+		dbAcquireWait = dbAcquireConnWait
 
 		var q string
 		for {
 			select {
 			case <-s.ctx.Done():
 				return
-			case q = <-s.DbQuery:
+			case q = <-s.DBQuery:
 			default:
 				q = ";"
 			}
@@ -212,7 +222,7 @@ func (s *EventServer) Start() {
 			// paause
 			select {
 			case <-s.ctx.Done():
-			case <-time.After(s.loopPause):
+			case <-time.After(s.loopPause * time.Millisecond):
 			}
 		}
 	}

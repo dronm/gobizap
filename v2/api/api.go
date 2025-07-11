@@ -1,3 +1,4 @@
+// Package api is for dynamic service calls.
 package api
 
 import (
