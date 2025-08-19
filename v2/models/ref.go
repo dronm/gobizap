@@ -9,3 +9,10 @@ type Ref struct {
 	Descr    *string `json:"descr"`
 	DataType *string `json:"dataType"`
 }
+
+func (r Ref) String() string {
+	if r.Descr == nil {
+		return ""
+	}
+	return *r.Descr
+}

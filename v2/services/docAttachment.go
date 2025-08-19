@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	CACHE_DIR = "CACHE"
+	CacheDir = "CACHE"
 )
 
 type DocAttachmentService struct {
@@ -30,48 +30,49 @@ func NewDocAttachmentService(db *pgds.PgProvider, sess session.Session) *DocAtta
 	return &DocAttachmentService{DB: db, Session: sess}
 }
 
-// file ID is unique inside ref
+// GetAttachmentCacheFileName returns cache file name, file ID is unique inside ref
 func (s *DocAttachmentService) GetAttachmentCacheFileName(baseDir string, refDataType string, refID int, fileID string) string {
-	return filepath.Join(baseDir, CACHE_DIR, GetMd5(fmt.Sprintf("att_%s%d_%s", refDataType, refID, fileID)))
+	return filepath.Join(baseDir, CacheDir, GetMd5(fmt.Sprintf("att_%s%d_%s", refDataType, refID, fileID)))
 }
 
 func (s *DocAttachmentService) GetPreviewCacheFileName(baseDir string, refDataType string, refID int, fileID string) string {
-	return filepath.Join(baseDir, CACHE_DIR, GetMd5(fmt.Sprintf("prev_%s%d_%s", refDataType, refID, fileID)))
+	return filepath.Join(baseDir, CacheDir, GetMd5(fmt.Sprintf("prev_%s%d_%s", refDataType, refID, fileID)))
 }
 
 func (s *DocAttachmentService) runCMD(progName, commands, previewName string, toPDF bool) error {
-	cmd_args := strings.Split(commands, " ")
-	cmd := exec.Command(progName, cmd_args...)
+	cmdArgs := strings.Split(commands, " ")
+	cmd := exec.Command(progName, cmdArgs...)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error converting doc to image: %v, params: %s %s", err, progName, commands)
 	}
 
 	if toPDF {
-		var thbn_n string
+		var thbName string
 		if FileExists(previewName + "-1.jpg") {
-			thbn_n = previewName + "-1.jpg"
+			thbName = previewName + "-1.jpg"
 		} else if FileExists(previewName + "-01.jpg") {
-			thbn_n = previewName + "-01.jpg"
+			thbName = previewName + "-01.jpg"
 		} else if FileExists(previewName + "-001.jpg") {
-			thbn_n = previewName + "-001.jpg"
+			thbName = previewName + "-001.jpg"
 		}
-		// thbn_n -->> previewName
-		os.Rename(thbn_n, previewName)
+		// thbName -->> previewName
+		os.Rename(thbName, previewName)
 	}
 
 	return nil
 }
 
+// GenThumbnail generates thumbnail.
 // realName for mime type!!!
 // attName - attachment name
 // pName - preview name
 // realName
 func (s *DocAttachmentService) GenThumbnail(attName, pName, realName string) error {
 	var fExt string
-	f_parts := strings.Split(realName, ".")
-	if len(f_parts) > 0 {
-		fExt = strings.ToLower(f_parts[len(f_parts)-1])
+	fileParts := strings.Split(realName, ".")
+	if len(fileParts) > 0 {
+		fExt = strings.ToLower(fileParts[len(fileParts)-1])
 	}
 
 	pdftoppm_fmt := "-l 1 -scale-to 300 -jpeg %s %s" //-q no comment or errors
@@ -110,50 +111,50 @@ func (s *DocAttachmentService) GenThumbnail(attName, pName, realName string) err
 }
 
 func (s *DocAttachmentService) GenAttachmentThumbnail(baseDir string, refDataType string, refID int, fileInfo *models.DocAttachmentContentInfo, attBuf io.Reader) ([]byte, error) {
-	att_n := s.GetAttachmentCacheFileName(baseDir, refDataType, refID, fileInfo.ID)
-	file_att, err := os.OpenFile(att_n, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	attName := s.GetAttachmentCacheFileName(baseDir, refDataType, refID, fileInfo.ID)
+	fileAtt, err := os.OpenFile(attName, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return []byte{}, fmt.Errorf("GenAttachmentThumbnail os.OpenFile() failed: %v", err)
 	}
-	defer file_att.Close()
-	_, err = io.Copy(file_att, attBuf)
+	defer fileAtt.Close()
+	_, err = io.Copy(fileAtt, attBuf)
 	if err != nil {
 		return []byte{}, fmt.Errorf("GenAttachmentThumbnail io.Copy() failed: %v", err)
 	}
 
-	preview_fn := s.GetPreviewCacheFileName(baseDir, refDataType, refID, fileInfo.ID)
-	if err := s.GenThumbnail(att_n, preview_fn, fileInfo.Name); err != nil {
+	previewFileName := s.GetPreviewCacheFileName(baseDir, refDataType, refID, fileInfo.ID)
+	if err := s.GenThumbnail(attName, previewFileName, fileInfo.Name); err != nil {
 		return []byte{}, fmt.Errorf("GenAttachmentThumbnail GenThumbnail() failed: %v", err)
 	}
-	defer os.Remove(preview_fn)
+	defer os.Remove(previewFileName)
 
-	var preview_bt []byte
-	preview_bt, err = os.ReadFile(preview_fn)
+	var previewData []byte
+	previewData, err = os.ReadFile(previewFileName)
 	if err != nil {
 		return []byte{}, fmt.Errorf("GenAttachmentThumbnail os.ReadFile() failed: %v", err)
 	}
-	return preview_bt, nil
+	return previewData, nil
 }
 
-func (s *DocAttachmentService) AddFileThumbnailToDb(baseDir string, file io.Reader, fileInfo *models.DocAttachmentContentInfo, ref *models.Ref) ([]byte, error) {
+func (s *DocAttachmentService) AddFileThumbnailToDB(baseDir string, file io.Reader, fileInfo *models.DocAttachmentContentInfo, ref *models.Ref) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	if _, err := io.Copy(buf, file); err != nil {
-		return []byte{}, fmt.Errorf("AddFileThumbnailToDb() failed: %v", err)
+		return []byte{}, fmt.Errorf("AddFileThumbnailToDB() failed: %v", err)
 	}
 
 	fileCont := buf.Bytes()
 	fileInfo.Size = int64(buf.Len())
 	// thumbnail
-	preview_bt, err := s.GenAttachmentThumbnail(baseDir, *ref.DataType, ref.Keys.ID, fileInfo, buf)
+	previewData, err := s.GenAttachmentThumbnail(baseDir, *ref.DataType, ref.Keys.ID, fileInfo, buf)
 	if err != nil {
-		return []byte{}, fmt.Errorf("AddFileThumbnailToDb  s.GenAttachmentThumbnail() failed: %v", err)
+		return []byte{}, fmt.Errorf("AddFileThumbnailToDB  s.GenAttachmentThumbnail() failed: %v", err)
 	}
 
-	if err := s.StoreAttachment(ref, fileInfo, fileCont, preview_bt); err != nil {
+	if err := s.StoreAttachment(ref, fileInfo, fileCont, previewData); err != nil {
 		return []byte{}, err
 	}
 
-	return preview_bt, nil
+	return previewData, nil
 }
 
 func (s *DocAttachmentService) StoreAttachment(ref *models.Ref, fileInfo *models.DocAttachmentContentInfo, fileData []byte, previewData []byte) error {
@@ -203,9 +204,9 @@ func (s *DocAttachmentService) StoreAttachment(ref *models.Ref, fileInfo *models
 
 func (s *DocAttachmentService) AddFile(ctx context.Context, file multipart.File, docAtt models.DocAttachment) (*models.DocAttachment, error) {
 	var err error
-	docAtt.ContentPreview, err = s.AddFileThumbnailToDb(".", file, &docAtt.ContentInfo, &docAtt.Ref)
+	docAtt.ContentPreview, err = s.AddFileThumbnailToDB(".", file, &docAtt.ContentInfo, &docAtt.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("AddFile s.AddFileThumbnailToDb() failed: %v", err)
+		return nil, fmt.Errorf("AddFile s.AddFileThumbnailToDB() failed: %v", err)
 	}
 
 	return &docAtt, nil

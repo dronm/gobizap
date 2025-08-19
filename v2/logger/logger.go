@@ -1,3 +1,4 @@
+// Package logger provides logging support to the application.
 package logger
 
 import (
@@ -10,10 +11,10 @@ var Logger *logrus.Logger
 type LoggerLogLevel string
 
 const (
-	LOG_LEVEL_DEBUG LoggerLogLevel = "debug"
-	LOG_LEVEL_INFO  LoggerLogLevel = "info"
-	LOG_LEVEL_WARN  LoggerLogLevel = "warn"
-	LOG_LEVEL_ERROR LoggerLogLevel = "error"
+	logLevelDebug LoggerLogLevel = "debug"
+	logLevelInfo  LoggerLogLevel = "info"
+	logLevelWarn  LoggerLogLevel = "warn"
+	logLevelError LoggerLogLevel = "error"
 )
 
 type LogWriter struct {
@@ -47,18 +48,14 @@ func logrusLogLevel(logLevel LoggerLogLevel) logrus.Level {
 	var lvl logrus.Level
 
 	switch logLevel {
-	case LOG_LEVEL_DEBUG:
+	case logLevelDebug:
 		lvl = logrus.DebugLevel
-		break
-	case LOG_LEVEL_INFO:
+	case logLevelInfo:
 		lvl = logrus.InfoLevel
-		break
-	case LOG_LEVEL_WARN:
+	case logLevelWarn:
 		lvl = logrus.WarnLevel
-		break
-	case LOG_LEVEL_ERROR:
+	case logLevelError:
 		lvl = logrus.ErrorLevel
-		break
 	default:
 		lvl = logrus.InfoLevel
 	}

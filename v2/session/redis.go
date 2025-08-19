@@ -1,3 +1,4 @@
+// Package session is a redis session implementation.
 package session
 
 import (

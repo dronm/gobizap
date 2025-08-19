@@ -1,3 +1,4 @@
+// Package database provides database support.
 package database
 
 import (
@@ -10,12 +11,12 @@ import (
 
 var DB *pgds.PgProvider
 
-type DbStorage interface {
+type DBStorage interface {
 	GetPrimary() string;
 	GetSecondaries() map[string]string;
 }
 
-func Initialize(storage DbStorage, onNotifFunc pgds.OnDbNotificationProto) error {
+func Initialize(storage DBStorage, onNotifFunc pgds.OnDbNotificationProto) error {
 	//Db support
 	dbProv, err := ds.NewProvider("pg", storage.GetPrimary(), onNotifFunc, storage.GetSecondaries())
 	if err != nil {

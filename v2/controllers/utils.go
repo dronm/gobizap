@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	crud "github.com/dronm/crudifier"
-	"github.com/dronm/session"
 	"github.com/dronm/gobizap/v2/errs"
 	"github.com/dronm/gobizap/v2/logger"
+	"github.com/dronm/session"
 )
 
 // ReportErrors should be set at initialization.
@@ -64,6 +65,16 @@ func ServeError(c *gin.Context, httpErr int, fnName string, err error) {
 func ParamAsInt(c *gin.Context, key string) (int, error) {
 	paramStr := c.Param(key)
 	return strconv.Atoi(paramStr)
+}
+
+func ParamAsDate(c *gin.Context, key string) (time.Time, error) {
+	paramStr := c.Param(key)
+	return time.Parse("2006-01-02", paramStr)
+}
+
+func ParamAsDateTimeTZ(c *gin.Context, key string) (time.Time, error) {
+	paramStr := c.Param(key)
+	return time.Parse(time.RFC3339, paramStr)
 }
 
 func ParseCollectionParams(c *gin.Context) (crud.CollectionParams, error) {

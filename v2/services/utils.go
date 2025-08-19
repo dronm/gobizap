@@ -14,22 +14,27 @@ import (
 	crudMd "github.com/dronm/crudifier/metadata"
 	crudPg "github.com/dronm/crudifier/pg"
 	crudTypes "github.com/dronm/crudifier/types"
+
 	"github.com/dronm/ds/pgds"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/dronm/gobizap/v2/database"
+	"github.com/dronm/gobizap/v2/errs"
 	"github.com/dronm/gobizap/v2/logger"
 )
 
 const defCollectionLimit = 5000
 
+type CustomErrorHandler = func(error) error
+
 type DebugQueriesConfiger interface {
 	GetDebugQueries() bool;
 } 
 
-var configer DebugQueriesConfiger
+var Configer DebugQueriesConfiger
 
-func InsertModel(ctx context.Context, db *pgds.PgProvider, model crudTypes.DbModel) (map[string]any, error) {
+func InsertModel(ctx context.Context, db *pgds.PgProvider, model crudTypes.DbModel, customErrorHandler CustomErrorHandler) (map[string]any, error) {
 	poolConn, connID, err := db.GetPrimary()
 	if err != nil {
 		return nil, fmt.Errorf("GetPrimary() failed: %v", err)
@@ -37,12 +42,12 @@ func InsertModel(ctx context.Context, db *pgds.PgProvider, model crudTypes.DbMod
 	defer db.Release(poolConn, connID)
 	conn := poolConn.Conn()
 
-	return InsertModelWithConn(ctx, conn, model)
+	return InsertModelWithConn(ctx, conn, model, customErrorHandler)
 }
 
-// InsertModel insert model data to database ans returns server init field values and
+// InsertModelWithConn insert model data to database ans returns server init field values and
 // primary keys.
-func InsertModelWithConn(ctx context.Context, conn *pgx.Conn, model crudTypes.DbModel) (map[string]any, error) {
+func InsertModelWithConn(ctx context.Context, conn *pgx.Conn, model crudTypes.DbModel, customErrorHandler CustomErrorHandler) (map[string]any, error) {
 	dbInsert := crudPg.NewPgInsert(model)
 	if err := crud.PrepareInsertModel(dbInsert); err != nil {
 		return nil, err
@@ -51,15 +56,27 @@ func InsertModelWithConn(ctx context.Context, conn *pgx.Conn, model crudTypes.Db
 	queryParams := make([]any, 0)
 	queryText := dbInsert.SQL(&queryParams)
 
-	if configer != nil && configer.GetDebugQueries() {
+	if Configer != nil && Configer.GetDebugQueries() {
 		logger.Logger.Debugf("InsertModel queryText: %s, params: %v", queryText, queryParams)
 	}
 
-	if err := conn.QueryRow(ctx, queryText, queryParams...).Scan(dbInsert.RetFieldValues()...); err != nil && !errors.Is(pgx.ErrNoRows, err) {
-		return nil, err
+	var errorHandler = HandlePgxError
+	if customErrorHandler != nil {
+		errorHandler = customErrorHandler
+	}
+	if err := conn.QueryRow(ctx, queryText, queryParams...).Scan(dbInsert.RetFieldValues()...); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, errorHandler(err)
 	}
 
-	return dbInsert.RetFields(), nil
+	retFields := dbInsert.RetFields()
+
+	if EvHandler != nil {
+		if err := EvHandler.PublishEvent("", "User.Insert", retFields); err != nil {
+			logger.Logger.Errorf("InsertModelWithConn PublishEvent(): %v", err)
+		}
+	}
+
+	return retFields, nil
 }
 
 func DeleteModel(ctx context.Context, db *pgds.PgProvider, keyModels []crudTypes.DbModel) (int64, error) {
@@ -90,7 +107,7 @@ func DeleteModelWithConn(ctx context.Context, conn *pgx.Conn, keyModels []crudTy
 	queryParams := make([]any, 0)
 	queryText := dbDelete.SQL(&queryParams)
 
-	if configer != nil && configer.GetDebugQueries() {
+	if Configer != nil && Configer.GetDebugQueries() {
 		logger.Logger.Debugf("DeleteModel queryText: %s, params: %v", queryText, queryParams)
 	}
 
@@ -125,7 +142,7 @@ func FetchModelWithConn(ctx context.Context, conn *pgx.Conn,
 	queryParams := make([]any, 0)
 	queryText := dbSelect.SQL(&queryParams)
 
-	if configer != nil && configer.GetDebugQueries() {
+	if Configer != nil && Configer.GetDebugQueries() {
 		logger.Logger.Debugf("FetchModel queryText: %s, params: %v", queryText, queryParams)
 	}
 
@@ -162,7 +179,7 @@ func FetchCollectionModelWithConn[T crudTypes.DbAggModel, U any](ctx context.Con
 	queryParams := make([]any, 0)
 	queryText, totQueryText := dbSelect.CollectionSQL(&queryParams)
 
-	if configer != nil && configer.GetDebugQueries() {
+	if Configer != nil && Configer.GetDebugQueries() {
 		logger.Logger.Debugf("FetchCollectionModel queryText: %s, params: %v", queryText, queryParams)
 		if totQueryText != "" {
 			logger.Logger.Debugf("FetchCollectionModel totQueryText: %s, params: %v", totQueryText, queryParams)
@@ -256,7 +273,7 @@ func UpdateModel(ctx context.Context, db *pgds.PgProvider,
 	return UpdateModelWithConn(ctx, conn, keyModel, model)
 }
 
-// UpdateModel update date in model table.
+// UpdateModelWithConn update date in model table.
 // It returns number of actually affected rows.
 func UpdateModelWithConn(ctx context.Context, conn *pgx.Conn, keyModel any, model crudTypes.DbModel) (int64, error) {
 	dbUpdate := crudPg.NewPgUpdate(model)
@@ -267,7 +284,7 @@ func UpdateModelWithConn(ctx context.Context, conn *pgx.Conn, keyModel any, mode
 	queryParams := make([]any, 0)
 	queryText := dbUpdate.SQL(&queryParams)
 
-	if configer != nil && configer.GetDebugQueries() {
+	if Configer != nil && Configer.GetDebugQueries() {
 		logger.Logger.Debugf("UpdateModel queryText: %s, params: %v", queryText, queryParams)
 		// logger.Logger.Debugf("queryParams[0]:",string(queryParams[0].([]byte)))
 	}
@@ -280,7 +297,7 @@ func UpdateModelWithConn(ctx context.Context, conn *pgx.Conn, keyModel any, mode
 	return cmd.RowsAffected(), nil
 }
 
-// tags: sql:"false" f:"fieldName" json:"fieldName"
+// AddStructFieldsToList tags: sql:"false" f:"fieldName" json:"fieldName"
 // If "sql" tag is set to false, then field is ignored.
 // If "f" tag present then it is treated as a field name.
 // If "json" tag present and it is not "-" then it is treated as a firld name.
@@ -301,39 +318,38 @@ func AddStructFieldsToList(v reflect.Value, fields *[]any, fieldIDs *strings.Bui
 				return err
 			}
 		} else if sql, ok := t.Field(i).Tag.Lookup("sql"); !ok || sql != "false" {
-			var fieldId string
-			if fieldId, ok = t.Field(i).Tag.Lookup("f"); !ok {
+			var fieldID string
+			if fieldID, ok = t.Field(i).Tag.Lookup("f"); !ok {
 				// no f tag
-				if fieldId, ok = t.Field(i).Tag.Lookup("json"); !ok || fieldId == "-" {
+				if fieldID, ok = t.Field(i).Tag.Lookup("json"); !ok || fieldID == "-" {
 					// no json
 					continue
 				}
-			} else if fieldId == "-" {
+			} else if fieldID == "-" {
 				continue
 			}
 
-			value_field := v.Field(i)
-			*fields = append(*fields, value_field.Addr().Interface())
+			valueField := v.Field(i)
+			*fields = append(*fields, valueField.Addr().Interface())
 
 			if fieldIDs.Len() > 0 {
 				fieldIDs.WriteString(",")
 			}
-			fieldIDs.WriteString(fieldPrefix + fieldId)
+			fieldIDs.WriteString(fieldPrefix + fieldID)
 		}
 	}
 	return nil
 }
 
-// Returns:
-//
+// MakeStructRowFields Returns:
 //	struct fields,
 //	list of field IDs for select query
 //	error if any
 func MakeStructRowFields(resultStruct any, fieldPrefix string) ([]any, string, error) {
 	fields := make([]any, 0)
-	var field_ids strings.Builder
-	AddStructFieldsToList(reflect.ValueOf(resultStruct), &fields, &field_ids, fieldPrefix)
-	return fields, field_ids.String(), nil
+	var fieldIds strings.Builder
+	AddStructFieldsToList(reflect.ValueOf(resultStruct), &fields, &fieldIds, fieldPrefix)
+	return fields, fieldIds.String(), nil
 }
 
 func GetMd5(data string) string {
@@ -365,3 +381,13 @@ func PublishEventWithConn(ctx context.Context, conn *pgx.Conn, sessionID string,
 	return err
 }
 
+
+func HandlePgxError(err error) error {
+	//chech sqlState
+	if pgErr, ok := err.(*pgconn.PgError); ok {
+		if pgErr.Code == "23505" {
+			return errs.NewPublicError(errs.DBKeyExists)
+		}
+	}
+	return err
+}

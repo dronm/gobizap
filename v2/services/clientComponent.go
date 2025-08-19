@@ -10,7 +10,6 @@ import (
 	"github.com/dronm/session"
 )
 
-// ClientComponent is a service.
 type ClientComponentService struct {
 	DB      *pgds.PgProvider
 	Session session.Session
@@ -23,7 +22,7 @@ func NewClientComponentService(db *pgds.PgProvider, sess session.Session) *Clien
 
 // Insert inserts one row into models.ClientComponent
 func (s *ClientComponentService) Insert(ctx context.Context, model models.ClientComponent) (map[string]interface{}, error) {
-	retFields, err := InsertModel(ctx, s.DB, &model)
+	retFields, err := InsertModel(ctx, s.DB, &model, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,7 @@ package eventServer
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/dronm/gobizap/v2/database"
 	"github.com/dronm/gobizap/v2/logger"
-	"github.com/dronm/gobizap/v2/ws"
 )
 
 const (
@@ -85,12 +84,17 @@ func (e *UniqEvents) TotalEventCount() int {
 	return len(e.m)
 }
 
+type SocketServer interface {
+	PublishEvent(publisherID, eventID string, payload any) error
+}
+
 // EventServer is the main server structure.
 type EventServer struct {
-	DBPool      *pgxpool.Pool //
-	DBQuery     chan string   // for notification queries
-	Events      *UniqEvents   // count of unique events for db
-	LocalEvents map[string]struct{}
+	DBPool       *pgxpool.Pool //
+	DBQuery      chan string   // for notification queries
+	SocketServer SocketServer
+	Events       *UniqEvents // count of unique events for db
+	LocalEvents  map[string]struct{}
 
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -139,96 +143,114 @@ func (s *EventServer) OnNotification(_ *pgconn.PgConn, n *pgconn.Notification) {
 	}
 
 	// publish event for all client consumers
-	evPayload := fmt.Sprintf(`{"id": "%s", "params": %s}`, n.Channel, n.Payload)
-	ws.PublishEvent("", []byte(evPayload)) // send to all subscribed
+	if s.SocketServer == nil {
+		logger.Logger.Errorf("EventSrv: OnNotification: can not publish event: socket server is undefined.")
+		return
+	}
+	// send to all subscribed sockets
+	if n.Payload == "" {
+		n.Payload = "null"
+	}
+
+	var raw json.RawMessage
+	if err := json.Unmarshal([]byte(n.Payload), &raw); err != nil {
+		logger.Logger.Errorf("EventSrv: invalid JSON payload from PG: %v", err)
+		return
+	}
+	if err := s.SocketServer.PublishEvent("" ,n.Channel, raw); err != nil {
+		logger.Logger.Errorf("EventSrv: PublishEvent(): %v", err)
+	}
 }
 
-func (s *EventServer) Start() {
-	s.ctx, s.cancel = context.WithCancel(context.Background())
+func (s *EventServer) Serve() {
+	go func() {
+		s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	s.cancelDone = make(chan struct{})
-	defer close(s.cancelDone)
+		s.cancelDone = make(chan struct{})
+		defer close(s.cancelDone)
 
-	s.DBQuery = make(chan string, 10)
-	s.Events = &UniqEvents{m: make(map[string]int, 0)}
+		s.DBQuery = make(chan string)
+		s.Events = &UniqEvents{m: make(map[string]int, 0)}
 
-	if s.LocalEvents != nil {
-		s.Events.mx.Lock()
-		for evntID := range s.LocalEvents {
-			s.Events.m[evntID] = 1 // one instance only
-		}
-		s.Events.mx.Unlock()
-	}
-
-	if s.loopPause == 0 {
-		s.loopPause = defLoopPause
-	}
-	logger.Logger.Infof("EventServer: started, loop pause: %v", s.loopPause)
-
-	dbAcquireWait := dbAcquireConnWait
-
-	for {
-		var conn *pgxpool.Conn
-
-		select {
-		case <-s.ctx.Done():
-			logger.Logger.Debug("EventServer breaking loop on stop request")
-			return
-		default:
-			var err error
-			conn, err = s.DBPool.Acquire(s.ctx)
-			if err != nil {
-				if dbAcquireWait > dbMaxAcquireConnWait {
-					dbAcquireWait = dbMaxAcquireConnWait
-				}
-				logger.Logger.Errorf("EventServer DbPool.Acquire(): %v", err)
-
-				time.Sleep(time.Duration(dbAcquireWait) * time.Millisecond)
-				dbAcquireWait = dbAcquireWait * 2
-				continue
+		if s.LocalEvents != nil {
+			s.Events.mx.Lock()
+			for evntID := range s.LocalEvents {
+				s.Events.m[evntID] = 1 // one instance only
 			}
+			s.Events.mx.Unlock()
 		}
 
-		for evnt := range s.Events.m {
-			logger.Logger.Debugf("EventSrv LocalEvent: %s", evnt)
-			conn.Exec(s.ctx, `LISTEN "`+evnt+`"`)
+		if s.loopPause == 0 {
+			s.loopPause = defLoopPause
 		}
+		logger.Logger.Infof("EventServer: started, loop pause: %v", s.loopPause)
 
-		logger.Logger.Debug("EventSrv acquired connection")
+		dbAcquireWait := dbAcquireConnWait
 
-		dbAcquireWait = dbAcquireConnWait
-
-		var q string
 		for {
+			var conn *pgxpool.Conn
+
 			select {
 			case <-s.ctx.Done():
+				logger.Logger.Debug("EventServer breaking loop on stop request")
 				return
-			case q = <-s.DBQuery:
 			default:
-				q = ";"
-			}
+				var err error
+				conn, err = s.DBPool.Acquire(s.ctx)
+				if err != nil {
+					if dbAcquireWait > dbMaxAcquireConnWait {
+						dbAcquireWait = dbMaxAcquireConnWait
+					}
+					logger.Logger.Errorf("EventServer DbPool.Acquire(): %v", err)
 
-			if _, err := conn.Exec(s.ctx, q); err != nil {
-				if s.ctx.Err() == context.Canceled {
-					conn.Release()
-					return
+					time.Sleep(time.Duration(dbAcquireWait) * time.Millisecond)
+					dbAcquireWait = dbAcquireWait * 2
+					continue
 				}
-				logger.Logger.Errorf("EventSrv conn.Exec(): %v on query: %s", err, q)
-
-				conn.Release()
-				break
 			}
 
-			// paause
-			select {
-			case <-s.ctx.Done():
-			case <-time.After(s.loopPause * time.Millisecond):
+			for evnt := range s.Events.m {
+				logger.Logger.Debugf("EventSrv LocalEvent: %s", evnt)
+				conn.Exec(s.ctx, `LISTEN "`+evnt+`"`)
+			}
+
+			logger.Logger.Debug("EventSrv acquired connection")
+
+			dbAcquireWait = dbAcquireConnWait
+
+			var q string
+			for {
+				select {
+				case <-s.ctx.Done():
+					return
+				case q = <-s.DBQuery:
+					logger.Logger.Debugf("EventSrv: query: %s", q)
+				default:
+					q = ";" // emty query
+				}
+
+				if _, err := conn.Exec(s.ctx, q); err != nil {
+					if s.ctx.Err() == context.Canceled {
+						conn.Release()
+						return
+					}
+					logger.Logger.Errorf("EventSrv conn.Exec(): %v on query: %s", err, q)
+
+					conn.Release()
+					break
+				}
+
+				// pause
+				select {
+				case <-s.ctx.Done():
+				case <-time.After(s.loopPause * time.Millisecond):
+				}
 			}
 		}
-	}
+	}()
 }
 
-func (s *EventServer) Stop(ctx context.Context) {
+func (s *EventServer) Shutdown(ctx context.Context) {
 	if s.cancel == nil {
 		return
 	}
@@ -240,4 +262,12 @@ func (s *EventServer) Stop(ctx context.Context) {
 	case <-s.cancelDone:
 	}
 	logger.Logger.Info("EventServer stopped")
+}
+
+func (s *EventServer) AddEvent(ID string) {
+	s.Events.AddEvent(ID, s.DBQuery)
+}
+
+func (s *EventServer) RemoveEvent(ID string) {
+	s.Events.RemoveEvent(ID, s.DBQuery)
 }

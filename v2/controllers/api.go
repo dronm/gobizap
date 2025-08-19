@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,7 +37,22 @@ func APIGet(c *gin.Context) {
 		params = append(params, val)
 	}
 
-	callAPIMethod(c, funcName, params)
+	service, method, err := extractService(c)
+	if err != nil {
+		ServeError(c, http.StatusInternalServerError, funcName, err)
+	}
+
+	sess := GetSession(c, funcName)
+	if sess == nil {
+		ServeError(c, http.StatusMethodNotAllowed, funcName+" session not found", err)
+	}
+
+	httpRes, jsonRes, err := CallServiceMethod(c.Request.Context(), service, method , params, &api.ServiceContext{DB: database.DB, Session: sess})
+	if err != nil {
+		ServeError(c, httpRes, funcName, err)
+	}
+
+	c.JSON(http.StatusOK, jsonRes)
 }
 
 // APIPost handle post requests. It only deals with app/json requests.
@@ -55,125 +71,76 @@ func APIPost(c *gin.Context) {
 		return
 	}
 
-	// decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
-	//
-	// tok, err := decoder.Token()
-	// if err != nil {
-	// 	ServeError(c, http.StatusBadRequest, funcName+" decoder.Token()", err)
-	// 	return
-	// }
-	//
-	// delim, ok := tok.(json.Delim)
-	// if !ok || delim != '{' {
-	// 	ServeError(c, http.StatusBadRequest, funcName+" tok.(json.Delim)", fmt.Errorf("expected json object"))
-	// 	return
-	// }
-	//
-	// for decoder.More() {
-	// 	//Do not need key here!!!
-	// 	// keyTok, err := decoder.Token()
-	// 	// if err != nil {
-	// 	// 	ServeError(c, http.StatusBadRequest, funcName+" decoder.Token()", fmt.Errorf("error reading key"))
-	// 	// 	return
-	// 	// }
-	//
-	// 	// key, ok := keyTok.(string)
-	// 	// if !ok {
-	// 	// 	ServeError(c, http.StatusBadRequest, funcName+" keyTok.(string)", fmt.Errorf("invalid key type"))
-	// 	// 	return
-	// 	// }
-	// 	//
-	// 	// Read value token
-	// 	var raw json.RawMessage
-	// 	if err := decoder.Decode(&raw); err != nil {
-	// 		ServeError(c, http.StatusBadRequest, funcName+" decoder.Decode()", fmt.Errorf("error decoding value"))
-	// 		return
-	// 	}
-	//
-	// 	// Optionally: store raw JSON string or decode into string
-	// 	// For simplicity, decode into string if possible
-	// 	var strVal string
-	// 	if err := json.Unmarshal(raw, &strVal); err != nil {
-	// 		// If not a string, keep raw JSON text
-	// 		strVal = string(raw)
-	// 	}
-	//
-	// 	params = append(params, strVal)
-	// }
-	//
-	// // ensure cloging
-	// if _, err := decoder.Token(); err != nil {
-	// 	ServeError(c, http.StatusBadRequest, funcName+" decoder.Token()", fmt.Errorf("error reading end of object"))
-	// 	return
-	// }
-
-	callAPIMethod(c, funcName, params)
-}
-
-// callAPIMethod with the given params. funcName is a name of the calling function
-// for the log.
-func callAPIMethod(c *gin.Context, funcName string, params []string) {
-	sess := GetSession(c, funcName)
-	if sess == nil {
-		return
-	}
-
 	service, method, err := extractService(c)
 	if err != nil {
-		ServeError(c, http.StatusBadRequest, funcName, err)
-		return
+		ServeError(c, http.StatusInternalServerError, funcName, err)
 	}
-	srvMeth := fmt.Sprintf("%s.%s()", service, method)
 
+	sess := GetSession(c, funcName)
+	if sess == nil {
+		ServeError(c, http.StatusMethodNotAllowed, funcName+" session not found", err)
+	}
+
+	httpRes, jsonRes, err := CallServiceMethod(c.Request.Context(), service, method , params, &api.ServiceContext{DB: database.DB, Session: sess})
+	if err != nil {
+		ServeError(c, httpRes, funcName, err)
+	}
+
+	c.JSON(http.StatusOK, jsonRes)
+}
+
+// CallServiceMethod dynamically calls a service method with the given params. funcName is a name of the calling function
+// for the log.
+// It returns an http result code, json result body and error.
+func CallServiceMethod(ctx context.Context, service, method string, params []string, src *api.ServiceContext) (int, any, error) {
 	results, err := api.CallMethod(
-		c.Request.Context(),
+		ctx,
 		service,
 		method,
 		params,
-		&api.ServiceContext{DB: database.DB, Session: sess},
+		src,
 	)
 	if err != nil {
-		ServeError(c, http.StatusBadRequest, srvMeth, err)
-		return
+		return http.StatusBadRequest, nil, fmt.Errorf("%s.%s api.CallMethod(): %v", service, method, err)
 	}
 
 	// last result is always an error
-	var htmlResult any
+	var resultBody any
 	if len(results) > 0 {
 		last := results[len(results)-1]
 		errVal := results[len(results)-1]
 		if last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) && !last.IsNil() {
 			err := errVal.Interface().(error)
-			ServeError(c, http.StatusInternalServerError, srvMeth, err)
-			return
+			return http.StatusInternalServerError, nil, err
 		}
 		if len(results) > 1 {
 			if len(results) == 1 {
 				// one model
-				htmlResult = results[0].Interface()
+				resultBody = results[0].Interface()
 			} else {
 				// slice of models, minus error result
 				res := make([]any, len(results)-1)
 				for i := 0; i < len(results)-1; i++ {
 					res[i] = results[i].Interface()
 				}
-				htmlResult = res
+				resultBody = res
 			}
 		}
 	}
-	c.JSON(http.StatusOK, htmlResult)
+
+	return http.StatusOK, resultBody, nil
 }
 
 // extractService is a helper functin to retrieve
-// service and method from http request.
-func extractService(c *gin.Context) (service string, method string, err error) {
-	service = PascalCaseFromKebabCase(c.Param("service")) // kebab-cased
+// service, method from http request.
+func extractService(c *gin.Context) (service, method string, err error) {
+	service = PascalCaseFromKebabCase(c.Param("service")) // kebab-cased service
 	if service == "" {
 		err = fmt.Errorf("service is undefined")
 		return
 	}
 
-	method = PascalCaseFromKebabCase(c.Param("method")) // kebab-cased
+	method = PascalCaseFromKebabCase(c.Param("method")) // kebab-cased method
 	if method == "" {
 		err = fmt.Errorf("service method is undefined")
 		return
@@ -187,8 +154,7 @@ func PascalCaseFromKebabCase(s string) string {
 		return ""
 	}
 	var res strings.Builder
-	parts := strings.Split(s, "-")
-	for _, w := range parts {
+	for w := range strings.SplitSeq(s, "-") {
 		if len(w) > 0 {
 			res.WriteString(strings.ToUpper(w[0:1]))
 			if len(w) > 1 {
@@ -198,4 +164,3 @@ func PascalCaseFromKebabCase(s string) string {
 	}
 	return res.String()
 }
-

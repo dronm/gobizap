@@ -55,7 +55,7 @@ func (s *NotifTemplateService) Update(ctx context.Context, keyModel models.Notif
 }
 
 func (s *NotifTemplateService) Insert(ctx context.Context, model models.NotifTemplate) (map[string]interface{}, error) {
-	retFields, err := InsertModel(ctx, s.DB, &model)
+	retFields, err := InsertModel(ctx, s.DB, &model, nil)
 	if err != nil {
 		return nil, err
 	}

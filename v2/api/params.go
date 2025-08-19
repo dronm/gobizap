@@ -49,7 +49,6 @@ func UnmarshalParams(payload []byte) ([]string, error) {
 		params = append(params, strVal)
 	}
 
-	// ensure cloging
 	if _, err := decoder.Token(); err != nil {
 		return nil, fmt.Errorf("error reading end of object: %v", err)
 	}

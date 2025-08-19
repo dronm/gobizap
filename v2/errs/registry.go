@@ -18,6 +18,7 @@ const (
 	BaseURLUndefined    ErrorCode = "BASE_URL_UNDEFINED"
 	UserCredIncorrect   ErrorCode = "USER_CRED_INCORRECT"
 	UserEmailNotFound   ErrorCode = "USER_EMAIL_NOT_FOUND"
+	DBKeyExists         ErrorCode = "DB_KEY_EXISTS"
 )
 
 var errorRegistry = map[ErrorCode]string{
@@ -35,6 +36,7 @@ var errorRegistry = map[ErrorCode]string{
 	DadataKeyUndefined:  "Не задан ключ dadata.ru",
 	UserCredIncorrect:   "Неверное имя пользователя или пароль",
 	UserEmailNotFound:   "Электронная почта не неайдена",
+	DBKeyExists:         "Нарушение уникального ключа",
 }
 
 func ErrorDescr(code ErrorCode) string {

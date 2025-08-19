@@ -1,3 +1,4 @@
+// Package errs provides error support.
 package errs
 
 import "fmt"

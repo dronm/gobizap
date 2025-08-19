@@ -1,3 +1,4 @@
+// Package ws is a websocket server implementation.
 package ws
 
 import (
@@ -8,139 +9,209 @@ import (
 	"time"
 
 	"github.com/dronm/gobizap/v2/logger"
+	"github.com/dronm/gobizap/v2/middleware"
+	"github.com/gin-gonic/gin"
 
-	"github.com/dronm/session"
 	"github.com/gorilla/websocket"
 )
 
-type Client struct {
-	ID   string
-	Conn *websocket.Conn
+var Server *WSServer
+
+const defMaxMethodCallDuration = time.Duration(1) * time.Minute
+
+type EventPubSub interface {
+	AddEvent(ID string)
+	RemoveEvent(ID string)
 }
 
-var (
-	upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true // Allow all origins
+type WSServer struct {
+	Addr                  string
+	MaxMethodCallDuration time.Duration
+	IsProduction          bool
+	EventServer           EventPubSub
+	server                *http.Server
+	clientsMx             sync.RWMutex
+	clients               map[string][]*Client // clients is a client connections holder with mutex protection.
+							//keys is a client session ID
+}
+
+func NewWSServer(addr string, eventServer EventPubSub, isProduction bool) *WSServer {
+	router := gin.Default()
+
+	var ginMode string
+	if isProduction {
+		ginMode = gin.ReleaseMode
+	} else {
+		ginMode = gin.DebugMode
+	}
+	gin.SetMode(ginMode)
+
+	srv := &WSServer{
+		Addr:         addr,
+		IsProduction: isProduction,
+		EventServer:  eventServer,
+		server: &http.Server{
+			Addr:    addr,
+			Handler: router,
 		},
-	}
-	clients   = make(map[string]Client)
-	clientsMu sync.RWMutex
-)
-
-func Upgrade(w http.ResponseWriter, r *http.Request, sess session.Session) error {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return fmt.Errorf("upgrader.Upgrade() failed: %v", err)
+		clients: map[string][]*Client{},
 	}
 
-	clientID := ""
+	router.Use(middleware.SessionMiddleware())
 
-	clientsMu.Lock()
-	clients[clientID] = Client{ID: clientID, Conn: conn}
-	clientsMu.Unlock()
+	router.GET("/", srv.Init)
 
-	defer func() {
-		clientsMu.Lock()
-		delete(clients, clientID)
-		clientsMu.Unlock()
-		conn.Close()
-	}()
+	return srv
+}
 
-	done := make(chan struct{})
+func (s *WSServer) Serve(cleanupConnInterval int) {
 	go func() {
-		<-r.Context().Done()
-		logger.Logger.Info("Request context closed, terminating WebSocket connection")
-		conn.Close()
-		close(done)
+		logger.Logger.Info("WSServer is running on", s.Addr)
+		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Logger.Fatalf("WSServer server.ListenAndServe(): %s\n", err)
+		}
 	}()
 
-	for {
-		select {
-		case <-done:
-			return nil
+	// if cleanupConnInterval > 0 {
+	// 	go s.CleanupConnections(time.Duration(cleanupConnInterval) * time.Millisecond)
+	// }
+}
 
-		default:
-			msgType, msg, err := conn.ReadMessage()
-			if err != nil {
-				return fmt.Errorf("conn.ReadMessage() failed: %v", err)
+func (s *WSServer) Shutdown(ctx context.Context) {
+	s.ShutdownWebSockets(ctx)
+	// Attempt to gracefully shut down the server
+	if err := s.server.Shutdown(ctx); err != nil {
+		logger.Logger.Fatalf("WSServer forced to shutdown: %s\n", err)
+	}
+	logger.Logger.Info("WSServer gracefully shutdown")
+}
+
+func (s *WSServer) CleanupConnections(interval time.Duration) {
+	logger.Logger.Infof("WSServer starting cleanup connections with interval: %v", interval)
+
+	for {
+		time.Sleep(interval)
+
+		logger.Logger.Warn("WSServer running cleanup connections")
+
+		s.clientsMx.Lock()
+		for sessionID, clientList := range s.clients {
+			var activeClients []*Client
+
+			for _, client := range clientList {
+				if err := client.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					logger.Logger.Warnf("WSServer closing stale socket for session %s", sessionID)
+					client.Conn.Close()
+					client.RemoveAllEvents()
+				} else {
+					activeClients = append(activeClients, client)
+				}
 			}
 
-			logger.Logger.Debugf("Received: type:%d, msg:%s\n", msgType, msg)
-
-			// Echo the message back
-			if err := conn.WriteMessage(msgType, msg); err != nil {
-				return fmt.Errorf("conn.WriteMessage() failed: %v", err)
+			if len(activeClients) > 0 {
+				s.clients[sessionID] = activeClients
+			} else {
+				delete(s.clients, sessionID)
 			}
 		}
+		s.clientsMx.Unlock()
 	}
 }
 
-func CleanupConnections(interval int) {
-	for {
-		time.Sleep(time.Duration(interval) * time.Second) // Periodic cleanup every 30 seconds
-		clientsMu.Lock()
-		for _, client := range clients {
-			if err := client.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				client.Conn.Close()
-				delete(clients, client.ID)
-			}
+func (s *WSServer) ShutdownWebSockets(ctx context.Context) {
+	s.clientsMx.Lock()
+	conns := make([]*websocket.Conn, 0)
+	for _, clientList := range s.clients {
+		for _, client := range clientList {
+			conns = append(conns, client.Conn)
 		}
-		clientsMu.Unlock()
 	}
-}
-
-func ShutdownWebSockets(ctx context.Context, appShutdownTimeout time.Duration) {
-	clientsMu.Lock()
-	conns := make([]*websocket.Conn, 0, len(clients))
-	for _, c := range clients {
-		conns = append(conns, c.Conn)
-	}
-	clientsMu.Unlock()
+	s.clientsMx.Unlock()
 
 	for _, conn := range conns {
 		if ctx.Err() != nil {
 			break
 		}
 
-		// Per-connection timeout context
-		connCtx, cancel := context.WithTimeout(ctx, appShutdownTimeout)
+		// Add per-connection timeout
+		connCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		errChan := make(chan error, 1)
 
-		go func() {
-			err := conn.WriteMessage(
+		go func(c *websocket.Conn) {
+			err := c.WriteMessage(
 				websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Server shutting down"),
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, "WSServer shutting down"),
 			)
-			conn.Close()
+			logger.Logger.Warnf("WSServer closing socket on shutdown")
+			c.Close()
 			errChan <- err
-		}()
+		}(conn)
 
 		select {
 		case <-connCtx.Done():
-			// Timed out or canceled
+			// Timeout or shutdown
 		case <-ctx.Done():
-			// Global shutdown canceled
-			cancel()
-			return
+			// Global context canceled
 		case <-errChan:
-			// Close completed
+			// Success or error from WriteMessage
 		}
 
 		cancel()
 	}
-
 }
 
-func PublishEvent(publisherID string, payload []byte) {
-	clientsMu.RLock()
+
+func (s *WSServer) SubscribeToEvent(sessionID, eventID string) error {
+	s.clientsMx.RLock()
+	defer s.clientsMx.RUnlock()
+
+	clients, ok := s.clients[sessionID]
+	if !ok {
+		return fmt.Errorf("WSServer SubscribeToEvent(): session not found by ID")
+	}
+
 	for _, client := range clients {
-		if client.ID == publisherID {
-			continue
-		}
-		if err := client.Conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-			logger.Logger.Errorf("PublishEvent conn.WriteMessage: %v", err)
+		client.AddEvent(eventID)
+	}
+
+	return nil
+}
+
+func (s *WSServer) UnsubscribeFromEvent(sessionID, eventID string) error {
+	s.clientsMx.RLock()
+	defer s.clientsMx.RUnlock()
+
+	clients, ok := s.clients[sessionID]
+	if !ok {
+		return fmt.Errorf("WSServer UnsubscribeFromEvent(): session not found by ID")
+	}
+
+	for _, client := range clients {
+		client.RemoveEvent(eventID)
+	}
+
+	return nil
+}
+
+func (s *WSServer) PublishEvent(publisherID, eventID string, payload any) error {
+	msg := SrvResponse{
+		QueryID: "", // Set this if needed
+		EventID: eventID,
+		Payload: payload,
+		Error:   nil,
+	}
+
+	s.clientsMx.RLock()
+	defer s.clientsMx.RUnlock()
+
+	for _, clientList := range s.clients {
+		for _, client := range clientList {
+			if client.ID == publisherID {
+				continue
+			}
+			s.SendMessage(client.Conn, &msg)
 		}
 	}
-	clientsMu.RUnlock()
+
+	return nil
 }
