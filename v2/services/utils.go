@@ -79,7 +79,7 @@ func InsertModelWithConn(ctx context.Context, conn *pgx.Conn, model crudTypes.Db
 	return retFields, nil
 }
 
-func DeleteModel(ctx context.Context, db *pgds.PgProvider, keyModels []crudTypes.DbModel) (int64, error) {
+func DeleteModel(ctx context.Context, db *pgds.PgProvider, keyModels []crudTypes.DbModel, customErrorHandler CustomErrorHandler) (int64, error) {
 	poolConn, connID, err := db.GetPrimary()
 	if err != nil {
 		return 0, fmt.Errorf("GetPrimary() failed: %v", err)
@@ -87,10 +87,10 @@ func DeleteModel(ctx context.Context, db *pgds.PgProvider, keyModels []crudTypes
 	defer db.Release(poolConn, connID)
 	conn := poolConn.Conn()
 
-	return DeleteModelWithConn(ctx, conn, keyModels)
+	return DeleteModelWithConn(ctx, conn, keyModels, customErrorHandler)
 }
 
-func DeleteModelWithConn(ctx context.Context, conn *pgx.Conn, keyModels []crudTypes.DbModel) (int64, error) {
+func DeleteModelWithConn(ctx context.Context, conn *pgx.Conn, keyModels []crudTypes.DbModel, customErrorHandler CustomErrorHandler) (int64, error) {
 	if len(keyModels) == 0 {
 		return 0, fmt.Errorf("delete array is empty")
 	}
@@ -111,9 +111,17 @@ func DeleteModelWithConn(ctx context.Context, conn *pgx.Conn, keyModels []crudTy
 		logger.Logger.Debugf("DeleteModel queryText: %s, params: %v", queryText, queryParams)
 	}
 
-	cmd, err := conn.Exec(ctx, queryText, queryParams...)
+	var errorHandler = HandlePgxError
+	if customErrorHandler != nil {
+		errorHandler = customErrorHandler
+	}
 
-	return cmd.RowsAffected(), err
+	cmd, err := conn.Exec(ctx, queryText, queryParams...)
+	if err != nil {
+		return 0, errorHandler(err)
+	}
+
+	return cmd.RowsAffected(), nil
 }
 
 func FetchModel(ctx context.Context, db *pgds.PgProvider,
@@ -387,6 +395,9 @@ func HandlePgxError(err error) error {
 	if pgErr, ok := err.(*pgconn.PgError); ok {
 		if pgErr.Code == "23505" {
 			return errs.NewPublicError(errs.DBKeyExists)
+
+		}else if pgErr.Code == "23503" {
+			return errs.NewPublicError(errs.DBRefExists)
 		}
 	}
 	return err

@@ -44,7 +44,7 @@ func (s *ClientComponentSectionService) Delete(ctx context.Context, keyModels []
 	for i, m := range keyModels {
 		models[i] = m
 	}
-	cnt, err := DeleteModel(ctx, s.DB, models)
+	cnt, err := DeleteModel(ctx, s.DB, models, nil)
 	if err != nil {
 		return 0, err
 	}

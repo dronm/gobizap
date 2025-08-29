@@ -27,7 +27,7 @@ func (m ConstantList) CollectionAgg() any {
 
 type ConstantValList struct {
 	ID          string  `json:"id"`
-	Val         *string `json:"val"`
+	Val         any `json:"val"` //*string
 }
 
 type ConstantSet struct {

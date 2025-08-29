@@ -19,6 +19,7 @@ const (
 	UserCredIncorrect   ErrorCode = "USER_CRED_INCORRECT"
 	UserEmailNotFound   ErrorCode = "USER_EMAIL_NOT_FOUND"
 	DBKeyExists         ErrorCode = "DB_KEY_EXISTS"
+	DBRefExists         ErrorCode = "DB_REF_EXISTS"
 )
 
 var errorRegistry = map[ErrorCode]string{
@@ -37,6 +38,7 @@ var errorRegistry = map[ErrorCode]string{
 	UserCredIncorrect:   "Неверное имя пользователя или пароль",
 	UserEmailNotFound:   "Электронная почта не неайдена",
 	DBKeyExists:         "Нарушение уникального ключа",
+	DBRefExists:         "Существуют ссылки",
 }
 
 func ErrorDescr(code ErrorCode) string {
