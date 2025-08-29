@@ -2,11 +2,11 @@ module github.com/dronm/gobizap/v2
 
 go 1.24.3
 
-replace github.com/dronm/ds => /home/andrey/go/ds
+#replace github.com/dronm/ds => /home/andrey/go/ds
 
-replace github.com/dronm/crudifier => /home/andrey/go/crudifier
+#replace github.com/dronm/crudifier => /home/andrey/go/crudifier
 
-replace github.com/dronm/ds/pgds => /home/andrey/go/ds/pgds
+#replace github.com/dronm/ds/pgds => /home/andrey/go/ds/pgds
 
 require (
 	github.com/dronm/crudifier v0.0.0-20250511045015-e3503fc15f00
