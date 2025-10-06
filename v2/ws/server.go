@@ -17,6 +17,8 @@ import (
 
 var Server *WSServer
 
+var URL string
+
 const defMaxMethodCallDuration = time.Duration(1) * time.Minute
 
 type EventPubSub interface {
@@ -59,7 +61,10 @@ func NewWSServer(addr string, eventServer EventPubSub, isProduction bool) *WSSer
 
 	router.Use(middleware.SessionMiddleware())
 
-	router.GET("/", srv.Init)
+	if URL == "" {
+		URL ="/"
+	}
+	router.GET(URL, srv.Init)
 
 	return srv
 }

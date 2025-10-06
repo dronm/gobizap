@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -55,7 +54,7 @@ func SessionMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("session_loader", func() (sess.Session, error) {
-			fmt.Println("SessionMiddleware session_loader, starting for sessID:", sessID)
+			// fmt.Println("SessionMiddleware session_loader, starting for sessID:", sessID)
 			sess, err := session.SessManager.SessionStart(sessID)
 			if err != nil {
 				return nil, err
@@ -66,7 +65,7 @@ func SessionMiddleware() gin.HandlerFunc {
 				_ = sess.Put("time_created", now)
 			}
 
-			fmt.Println("setting cookie to a session ID:", sess.SessionID())
+			// fmt.Println("setting cookie to a session ID:", sess.SessionID())
 			// set cookie
 			c.SetCookie(
 				session.SESS_COOKIE_KEY,
