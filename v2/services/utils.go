@@ -97,7 +97,7 @@ func DeleteModelWithConn(ctx context.Context, conn *pgx.Conn, keyModels []crudTy
 
 	var filters crudPg.PgFilters
 	for _, keyModel := range keyModels {
-		if err := crud.ModelToDbFilters(keyModel, &filters, crudTypes.SQL_FILTER_OPERATOR_E, crudTypes.SQL_FILTER_JOIN_OR); err != nil {
+		if err := crud.ModelToDBFilters(keyModel, &filters, crudTypes.SQL_FILTER_OPERATOR_E, crudTypes.SQL_FILTER_JOIN_OR); err != nil {
 			return 0, err
 		}
 	}

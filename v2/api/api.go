@@ -22,8 +22,9 @@ type MethodMeta struct {
 }
 
 type ServiceInitializer interface {
-	SetDB(db *pgds.PgProvider);
-	SetSession(sess session.Session);
+	SetDB(db *pgds.PgProvider)
+	SetSession(sess session.Session)
+	SetQueryID(queryID string)
 }
 
 // RegisterMethods registers all exported methods of the given type under typeName
@@ -132,8 +133,9 @@ func ConvertParamToType(param string, t reflect.Type) (reflect.Value, error) {
 }
 
 type ServiceContext struct {
-    DB      *pgds.PgProvider
-    Session session.Session
+	DB      *pgds.PgProvider
+	Session session.Session
+	QueryID string
 }
 
 func CallMethod(ctx context.Context, typeName, methodName string, paramStrs []string, svc *ServiceContext) ([]reflect.Value, error) {
@@ -148,7 +150,7 @@ func CallMethod(ctx context.Context, typeName, methodName string, paramStrs []st
 
 	// Context is the firs so add one.
 	if len(paramStrs)+1 != len(meta.ParamTypes) {
-		return nil, fmt.Errorf("expected %d params, got %d", len(meta.ParamTypes), len(paramStrs))
+		return nil, fmt.Errorf("expected %d params, got %d", len(meta.ParamTypes), len(paramStrs)+1)
 	}
 
 	// Convert params. The first param is always context.
@@ -166,6 +168,7 @@ func CallMethod(ctx context.Context, typeName, methodName string, paramStrs []st
 	if s, ok := receiver.Interface().(ServiceInitializer); ok {
 		s.SetDB(svc.DB)
 		s.SetSession(svc.Session)
+		s.SetQueryID(svc.QueryID)
 	}
 	// Call
 	return meta.Method.Func.Call(append([]reflect.Value{receiver}, args...)), nil

@@ -18,8 +18,13 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
+github.com/dronm/crudifier v0.0.0-20250918130344-26300cc670de h1:nC+3wdle1tdEN40BxxnD3D1ZYcdGDfrPfbZq2ueO7es=
+github.com/dronm/crudifier v0.0.0-20250918130344-26300cc670de/go.mod h1:CNvSKGZf6EGeqTTwpI7i+3yDZ58bK0i9h6wR2u2gtTA=
+github.com/dronm/ds v1.0.1/go.mod h1:PE2C5BvTGzDDyD6gmxEq2PyikYrKLO2NNnyp5SpuUCw=
 github.com/dronm/session v0.0.0-20241229034133-011d93cace7e h1:Luqz2jtvzQlvp4C4x94Rex2IKEVKeKrcG+UX26LXQ6E=
 github.com/dronm/session v0.0.0-20241229034133-011d93cace7e/go.mod h1:iYtKRo/WExFySwo1tru2LPN9c6MlJNQ8PjsV2H3SF0Y=
+github.com/dronm/session v0.0.0-20251018002339-3b4518905bb0 h1:4TEM7XevNiPdWgJaT69URitINl/jYy8luZm6YXb/8oQ=
+github.com/dronm/session v0.0.0-20251018002339-3b4518905bb0/go.mod h1:iYtKRo/WExFySwo1tru2LPN9c6MlJNQ8PjsV2H3SF0Y=
 github.com/gabriel-vasile/mimetype v1.4.3 h1:in2uUcidCuFcDKtdcBxlR0rJ1+fsokWf+uqxgUFjbI0=
 github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcPfT7nKyLpA0lbSSk=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=

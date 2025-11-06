@@ -74,3 +74,37 @@ func (s *WSServer) SendMessage(conn *websocket.Conn, resp *SrvResponse) {
 		return
 	}
 }
+
+func (s *WSServer) SendMessageToClientID(clientID string, msg any) error {
+	msgB, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("WSServer SendMessage json.Marshal(): %v", err)
+	}
+
+	s.clientsMx.RLock()
+	defer s.clientsMx.RUnlock()
+
+	clientConn, ok := s.clients[clientID]
+	if !ok {
+		return fmt.Errorf("SendMessageToClient(): client not found by ID: %s", clientID)
+	}
+	for _, conn := range clientConn {
+		conn.Conn.WriteMessage(websocket.TextMessage, msgB)
+	}
+	return nil
+}
+
+func (s *WSServer) SendMessageToClient(client []*Client, msg any) error {
+	msgB, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("WSServer SendMessage json.Marshal(): %v", err)
+	}
+
+	s.clientsMx.RLock()
+	defer s.clientsMx.RUnlock()
+
+	for _, conn := range client {
+		conn.Conn.WriteMessage(websocket.TextMessage, msgB)
+	}
+	return nil
+}

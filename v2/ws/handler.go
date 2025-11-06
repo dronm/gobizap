@@ -33,8 +33,8 @@ func (s *WSServer) Init(c *gin.Context) {
 	if sess == nil {
 		return
 	}
-	if err := s.HandleConnection(c.Writer, c.Request, sess, c); err != nil {
-		controllers.ServeError(c, http.StatusInternalServerError, funcName+" ws.Init()", err)
+	if respCode, err := s.HandleConnection(c.Writer, c.Request, sess, c); err != nil {
+		controllers.ServeError(c, respCode, funcName+" ws.Init()", err)
 	}
 }
 
@@ -44,10 +44,10 @@ type ClientMessage struct {
 	Payload json.RawMessage `json:"p"`
 }
 
-func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess session.Session, c *gin.Context) error {
+func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess session.Session, c *gin.Context) (int, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return fmt.Errorf("upgrader.Upgrade(): %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("upgrader.Upgrade(): %v", err)
 	}
 
 	clientID := sess.SessionID()
@@ -91,16 +91,16 @@ func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess
 	for {
 		select {
 		case <-done:
-			return nil
+			return http.StatusOK, nil
 
 		default:
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
 				// no error in this case!
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					return nil
+					return http.StatusOK, nil
 				}
-				return fmt.Errorf("conn.ReadMessage(): %v", err)
+				return http.StatusInternalServerError, fmt.Errorf("conn.ReadMessage(): %v", err)
 			}
 
 			logger.Logger.Debugf("Received: type:%d, msg:%s\n", msgType, string(msg))
@@ -138,6 +138,19 @@ func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess
 				continue
 			}
 
+			// check service.method.role permission service[0].service[1]
+			if s.isMethodAllowed != nil {
+				if err := s.isMethodAllowed(sess, service[0]+service[1]); err != nil {
+					if err := conn.WriteMessage(
+						websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "method is not allowed"),
+					); err != nil {
+						logger.Logger.Errorf("conn.WriteMessage(): %v", err)
+					}
+					return http.StatusUnauthorized, fmt.Errorf("isMethodAllowed(%s.%s)", service[0], service[1])
+				}
+			}
+
 			methDuration := defMaxMethodCallDuration
 			if s.MaxMethodCallDuration != 0 {
 				methDuration = s.MaxMethodCallDuration
@@ -150,7 +163,7 @@ func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess
 				service[0],
 				service[1],
 				params,
-				&api.ServiceContext{DB: database.DB, Session: sess},
+				&api.ServiceContext{DB: database.DB, Session: sess, QueryID: clientMsg.QueryID,},
 			)
 			if err != nil {
 				resp.Error = NewSrvResponseError(resHTTP, "controllers.CallServiceMethod", s.IsProduction, err)

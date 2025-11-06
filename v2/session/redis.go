@@ -12,11 +12,11 @@ import (
 	"github.com/dronm/gobizap/v2/logger"
 )
 
-const SESS_COOKIE_KEY = "_s"
+const SessCookieKey = "_s"
 
 var (
 	SessManager    *session.Manager
-	SessQueryParam = "token"
+	//SessQueryParam = "token"
 )
 
 type SessConfiger interface {

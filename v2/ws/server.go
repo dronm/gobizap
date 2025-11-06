@@ -8,16 +8,17 @@ import (
 	"sync"
 	"time"
 
+	sess "github.com/dronm/session"
+
 	"github.com/dronm/gobizap/v2/logger"
 	"github.com/dronm/gobizap/v2/middleware"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/gorilla/websocket"
 )
 
 var Server *WSServer
-
-var URL string
 
 const defMaxMethodCallDuration = time.Duration(1) * time.Minute
 
@@ -33,15 +34,42 @@ type WSServer struct {
 	EventServer           EventPubSub
 	server                *http.Server
 	clientsMx             sync.RWMutex
-	clients               map[string][]*Client // clients is a client connections holder with mutex protection.
-							//keys is a client session ID
+
+	// clients is a client connections holder with mutex protection.
+	// keys is a client session ID
+	clients map[string][]*Client // clients is a client connections holder with mutex protection.
+
+	checkPermission CheckPermission
+	isMethodAllowed IsMethodAllowed
 }
 
-func NewWSServer(addr string, eventServer EventPubSub, isProduction bool) *WSServer {
+type SessionManager interface {
+	SessionStart(string) (sess.Session, error)
+	GetMaxLifeTime() int64
+}
+
+// These functions are used for checking if ws method is allowed.
+type (
+	CheckPermission = func(method string) gin.HandlerFunc
+	IsMethodAllowed = func(userSess sess.Session, method string) error
+)
+
+type WSInit struct {
+	Addr            string
+	EventServer     EventPubSub
+	SessManager     SessionManager
+	CheckPermission CheckPermission
+	IsMethodAllowed IsMethodAllowed
+	IsProduction    bool
+	URL             string
+	SessCookieKey   string
+}
+
+func NewWSServer(wsInit WSInit) *WSServer {
 	router := gin.Default()
 
 	var ginMode string
-	if isProduction {
+	if wsInit.IsProduction {
 		ginMode = gin.ReleaseMode
 	} else {
 		ginMode = gin.DebugMode
@@ -49,22 +77,25 @@ func NewWSServer(addr string, eventServer EventPubSub, isProduction bool) *WSSer
 	gin.SetMode(ginMode)
 
 	srv := &WSServer{
-		Addr:         addr,
-		IsProduction: isProduction,
-		EventServer:  eventServer,
+		Addr:         wsInit.Addr,
+		IsProduction: wsInit.IsProduction,
+		EventServer:  wsInit.EventServer,
 		server: &http.Server{
-			Addr:    addr,
+			Addr:    wsInit.Addr,
 			Handler: router,
 		},
-		clients: map[string][]*Client{},
+		clients:         map[string][]*Client{},
+		checkPermission: wsInit.CheckPermission,
+		isMethodAllowed: wsInit.IsMethodAllowed,
 	}
 
-	router.Use(middleware.SessionMiddleware())
+	router.Use(middleware.SessionMiddleware(wsInit.SessManager, wsInit.SessCookieKey, wsInit.IsProduction))
 
-	if URL == "" {
-		URL ="/"
+	if wsInit.URL == "" {
+		wsInit.URL = "/"
 	}
-	router.GET(URL, srv.Init)
+	router.GET(wsInit.URL, srv.checkPermission("WS.Init"), srv.Init)
+	// router.GET(wsInit.URL, srv.Init)
 
 	return srv
 }
@@ -164,7 +195,6 @@ func (s *WSServer) ShutdownWebSockets(ctx context.Context) {
 		cancel()
 	}
 }
-
 
 func (s *WSServer) SubscribeToEvent(sessionID, eventID string) error {
 	s.clientsMx.RLock()

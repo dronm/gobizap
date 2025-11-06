@@ -20,6 +20,7 @@ var EvHandler EventHandler
 type EventService struct {
 	DB      *pgds.PgProvider
 	Session session.Session
+	QueryID string
 }
 
 func (s *EventService) SetDB(db *pgds.PgProvider) {
@@ -30,6 +31,9 @@ func (s *EventService) SetSession(sess session.Session) {
 	s.Session = sess
 }
 
+func (s *EventService) SetQueryID(queryID string) {
+	s.QueryID = queryID
+}
 
 func NewEventService(db *pgds.PgProvider, sess session.Session) *EventService {
 	return &EventService{DB: db, Session: sess}

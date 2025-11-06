@@ -1,24 +1,18 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	sess "github.com/dronm/session"
-
-	"github.com/dronm/gobizap/v2/logger"
-	"github.com/dronm/gobizap/v2/session"
 )
 
-var IsProduction bool
-var MaxLifeTime int64
-
-func extractCookieSessionID(c *gin.Context) string {
+func extractCookieSessionID(c *gin.Context, cookieKey string) string {
 	// cookie value if exists
-	if vCookie, err := c.Cookie(session.SESS_COOKIE_KEY); err == nil && vCookie != "" {
-		logger.Logger.Debug("got cookie ", vCookie)
+	if vCookie, err := c.Cookie(cookieKey); err == nil {
 		return vCookie
 	}
 	return ""
@@ -37,13 +31,22 @@ func extractHeaderSessionID(c *gin.Context) string {
 	return parts[1]
 }
 
-func SessionMiddleware() gin.HandlerFunc {
+type SessionManager interface {
+	SessionStart(string) (sess.Session, error)
+	GetMaxLifeTime() int64
+}
+
+func SessionMiddleware(
+	manager SessionManager,
+	cookieKey string,
+	isProduction bool,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.URL.Path == "/favicon.ico" {
 			c.Next()
 			return
 		}
-		sessID := extractCookieSessionID(c)
+		sessID := extractCookieSessionID(c, cookieKey)
 		if sessID == "" {
 			sessID = extractHeaderSessionID(c) // for API calls without cookies
 		}
@@ -54,10 +57,9 @@ func SessionMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("session_loader", func() (sess.Session, error) {
-			// fmt.Println("SessionMiddleware session_loader, starting for sessID:", sessID)
-			sess, err := session.SessManager.SessionStart(sessID)
+			sess, err := manager.SessionStart(sessID)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("manager.SessionStart(): %v" , err)
 			}
 
 			if !sessionAlreadyExists {
@@ -65,15 +67,14 @@ func SessionMiddleware() gin.HandlerFunc {
 				_ = sess.Put("time_created", now)
 			}
 
-			// fmt.Println("setting cookie to a session ID:", sess.SessionID())
 			// set cookie
 			c.SetCookie(
-				session.SESS_COOKIE_KEY,
+				cookieKey,
 				sess.SessionID(),
-				int(MaxLifeTime),
+				int(manager.GetMaxLifeTime()),
 				"/",
 				"",
-				IsProduction,
+				isProduction,
 				true,
 			)
 			c.Set("session", sess)

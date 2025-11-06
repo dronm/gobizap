@@ -9,9 +9,9 @@ go 1.24.3
 //replace github.com/dronm/ds/pgds => /home/andrey/go/ds/pgds
 
 require (
-	github.com/dronm/crudifier v0.0.0-20250511045015-e3503fc15f00
+	github.com/dronm/crudifier v0.0.0-20250918130344-26300cc670de
 	github.com/dronm/ds v1.0.1
-	github.com/dronm/session v0.0.0-20241229034133-011d93cace7e
+	github.com/dronm/session v0.0.0-20251018002339-3b4518905bb0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.2

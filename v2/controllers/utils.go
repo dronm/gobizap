@@ -130,7 +130,7 @@ func GetSession(c *gin.Context, funcName string) session.Session {
 		var err error
 		sess, err = loader.(func() (session.Session, error))()
 		if err != nil {
-			ServeError(c, http.StatusInternalServerError, funcName+"loader", fmt.Errorf("session_loader failed"))
+			ServeError(c, http.StatusInternalServerError, funcName+"loader", fmt.Errorf("session_loader failed: %v", err))
 			return nil
 		}
 	}
