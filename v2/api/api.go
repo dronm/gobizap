@@ -58,6 +58,20 @@ func ConvertParamToType(param string, t reflect.Type) (reflect.Value, error) {
 		isPtr = true
 	}
 
+	    // Handle interface{} type
+	    if t.Kind() == reflect.Interface {
+		// For interface{}, we'll unmarshal JSON into a generic interface{}
+		var v interface{}
+		if err := json.Unmarshal([]byte(param), &v); err != nil {
+		    return reflect.Value{}, err
+		}
+		if isPtr {
+		    // Can't have pointer to interface, so just return the value
+		    return reflect.ValueOf(&v), nil
+		}
+		return reflect.ValueOf(v), nil
+	    }
+	    
 	switch t.Kind() {
 	case reflect.String:
 		v := reflect.ValueOf(param)
@@ -150,7 +164,7 @@ func CallMethod(ctx context.Context, typeName, methodName string, paramStrs []st
 
 	// Context is the firs so add one.
 	if len(paramStrs)+1 != len(meta.ParamTypes) {
-		return nil, fmt.Errorf("expected %d params, got %d", len(meta.ParamTypes), len(paramStrs)+1)
+		return nil, fmt.Errorf("expected %d params, got %d", len(meta.ParamTypes)-1, len(paramStrs))
 	}
 
 	// Convert params. The first param is always context.

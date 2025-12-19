@@ -14,7 +14,8 @@ type Client struct {
 	Conn        *websocket.Conn
 	EventServer EventPubSub
 
-	mx        sync.Mutex
+	writeMu   sync.Mutex
+	mx        sync.Mutex	// events & visited
 	VisitedAt time.Time
 	events    map[string]struct{}
 }

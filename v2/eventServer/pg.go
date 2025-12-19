@@ -133,11 +133,14 @@ func (s *EventServer) OnNotification(_ *pgconn.PgConn, n *pgconn.Notification) {
 				return
 			}
 
-			logger.Logger.Debugf("EventServer local service call to %s.%s with %v", srvMeth[0], srvMeth[1], params)
+			logger.Logger.Debugf("EventServer local service call %s.%s with params %v", srvMeth[0], srvMeth[1], params)
 
-			go api.CallMethod(s.ctx, srvMeth[0], srvMeth[1], params,
+			_, err = api.CallMethod(s.ctx, srvMeth[0], srvMeth[1], params,
 				&api.ServiceContext{DB: database.DB, Session: s.sess},
 			)
+			if err != nil {
+				logger.Logger.Errorf("EventServer api.CallMethod() %s.%s with params %v, failed: %v", srvMeth[0], srvMeth[1], params, err)	
+			}
 			return
 		}
 	}

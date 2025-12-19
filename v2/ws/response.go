@@ -61,39 +61,64 @@ func NewSrvResponseError(httpErr int, fnName string, isProduction bool, err erro
 	return &resp
 }
 
-func (s *WSServer) SendMessage(conn *websocket.Conn, resp *SrvResponse) {
-	// resp.Status = (resp.Error != nil)
+func (s *WSServer) SendMessage(c *Client, resp *SrvResponse) error {
+    respData, err := json.Marshal(resp)
+    if err != nil {
+        logger.Logger.Errorf("WSServer SendMessage json.Marshal(): %v", err)
+        return fmt.Errorf("json marshal: %w", err)
+    }
 
-	respData, err := json.Marshal(resp)
-	if err != nil {
-		logger.Logger.Errorf("WSServer SendMessage json.Marshal(): %v", err)
-		return
-	}
-	if err := conn.WriteMessage(websocket.TextMessage, respData); err != nil {
-		logger.Logger.Errorf("WSServer SendMessage conn.WriteMessage(): %v", err)
-		return
-	}
+    // All websocket writes MUST be serialized
+    c.writeMu.Lock()
+    err = c.Conn.WriteMessage(websocket.TextMessage, respData)
+    c.writeMu.Unlock()
+
+    if err != nil {
+        logger.Logger.Errorf("WSServer SendMessage WriteMessage(): %v", err)
+        return fmt.Errorf("write message: %w", err)
+    }
+
+    return nil
 }
 
 func (s *WSServer) SendMessageToClientID(clientID string, msg any) error {
-	msgB, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("WSServer SendMessage json.Marshal(): %v", err)
-	}
+    msgB, err := json.Marshal(msg)
+    if err != nil {
+        return err
+    }
+
+    s.clientsMx.RLock()
+    conns := append([]*Client(nil), s.clients[clientID]...) // copy slice
+    s.clientsMx.RUnlock()
+
+    if len(conns) == 0 {
+        return fmt.Errorf("WSServer.SendMessageToClientID() client not found: %s", clientID)
+    }
+
+    for _, c := range conns {
+		logger.Logger.Debugf("WSServer.SendMessageToClientID(): clientID:%s, msg: %v", clientID, msg)
+        c.writeMu.Lock()
+        err := c.Conn.WriteMessage(websocket.TextMessage, msgB)
+        c.writeMu.Unlock()
+
+        if err != nil {
+            go s.removeConn(clientID, c)
+            return err
+        }
+    }
+    return nil
+}
+
+func (s *WSServer) HasClientID(clientID string) bool {
 
 	s.clientsMx.RLock()
 	defer s.clientsMx.RUnlock()
 
-	clientConn, ok := s.clients[clientID]
-	if !ok {
-		return fmt.Errorf("SendMessageToClient(): client not found by ID: %s", clientID)
-	}
-	for _, conn := range clientConn {
-		conn.Conn.WriteMessage(websocket.TextMessage, msgB)
-	}
-	return nil
+	_, ok := s.clients[clientID]
+	return ok
 }
 
+/*
 func (s *WSServer) SendMessageToClient(client []*Client, msg any) error {
 	msgB, err := json.Marshal(msg)
 	if err != nil {
@@ -104,7 +129,69 @@ func (s *WSServer) SendMessageToClient(client []*Client, msg any) error {
 	defer s.clientsMx.RUnlock()
 
 	for _, conn := range client {
-		conn.Conn.WriteMessage(websocket.TextMessage, msgB)
+		if err := conn.Conn.WriteMessage(websocket.TextMessage, msgB); err != nil {
+			return fmt.Errorf("WSServer SendMessageToClient conn.WriteMessage(): %v", err)			
+		}		
 	}
+	return nil
+}
+*/
+
+// PublishEvent sends SrvResponse with payload and eventID to all clients registered for this event. 
+func (s *WSServer) PublishEvent(publisherID, eventID string, payload any) error {
+    // 1. Build the message once
+	msg := SrvResponse{
+		QueryID: "", // Set this if needed
+		EventID: eventID,
+		Payload: payload,
+		Error:   nil,
+	}
+    msgB, err := json.Marshal(msg)
+    if err != nil {
+		return fmt.Errorf("json.Marshal(): %v", err)
+    }
+
+    // 2. Copy all clients that subscribed to this event
+    s.clientsMx.RLock()
+    var targets []*Client
+    for _, clientDevList := range s.clients {
+        for _, c := range clientDevList {
+			if c.ID == publisherID {
+				continue
+			}
+			if _, ok := c.events[eventID]; ok {
+                targets = append(targets, c)
+			}
+        }
+    }
+    s.clientsMx.RUnlock()
+
+    // 3. Send message outside of lock, per-client
+    for _, c := range targets {
+        c.writeMu.Lock()
+        err := c.Conn.WriteMessage(websocket.TextMessage, msgB)
+        c.writeMu.Unlock()
+
+        if err != nil {
+            go func(clientID string, bad *Client) {
+                s.removeConn(clientID, bad)
+            }(c.ID, c)
+        }
+    }
+
+	// s.clientsMx.RLock()
+	// defer s.clientsMx.RUnlock()
+	//
+	// for _, clientDevList := range s.clients {
+	// 	for _, clientDev := range clientDevList {
+	// 		if clientDev.ID == publisherID {
+	// 			continue
+	// 		}
+	// 		if _, ok := clientDev.events[eventID]; ok {
+	// 			s.SendMessage(clientDev.Conn, &msg)
+	// 		}
+	// 	}
+	// }
+
 	return nil
 }

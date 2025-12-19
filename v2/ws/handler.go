@@ -45,139 +45,168 @@ type ClientMessage struct {
 }
 
 func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request, sess session.Session, c *gin.Context) (int, error) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("upgrader.Upgrade(): %v", err)
-	}
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        return http.StatusInternalServerError, fmt.Errorf("upgrader.Upgrade(): %v", err)
+    }
 
-	clientID := sess.SessionID()
-	logger.Logger.Warnf("WSServer HandleConnection: adding new client with ID: %s", clientID)
+    clientID := sess.SessionID()
+    logger.Logger.Warnf("WSServer HandleConnection: adding new client with ID: %s", clientID)
 
-	client := NewClient(clientID, conn, s.EventServer)
-	s.clientsMx.Lock()
-	s.clients[clientID] = append(s.clients[clientID], client)
-	s.clientsMx.Unlock()
+    client := NewClient(clientID, conn, s.EventServer)
 
-	defer func() {
-		logger.Logger.Warnf("ws: closing connection %s, removing from session client list", clientID)
+    s.clientsMx.Lock()
+    s.clients[clientID] = append(s.clients[clientID], client)
+    s.clientsMx.Unlock()
 
-		s.clientsMx.Lock()
-		clients := s.clients[clientID]
-		for i, c := range clients {
-			if c == client {
-				c.RemoveAllEvents()
-				s.clients[clientID] = append(clients[:i], clients[i+1:]...)
-				break
-			}
-		}
+    defer func() {
+        logger.Logger.Warnf("ws: closing connection %s, removing from session client list", clientID)
 
-		// If no clients remain under this session ID, delete the key
-		if len(s.clients[clientID]) == 0 {
-			delete(s.clients, clientID)
-		}
-		s.clientsMx.Unlock()
+        s.clientsMx.Lock()
+        clients := s.clients[clientID]
+        for i, c := range clients {
+            if c == client {
+                c.RemoveAllEvents()
+                s.clients[clientID] = append(clients[:i], clients[i+1:]...)
+                break
+            }
+        }
 
-		conn.Close()
-	}()
+        if len(s.clients[clientID]) == 0 {
+            delete(s.clients, clientID)
+        }
+        s.clientsMx.Unlock()
 
-	done := make(chan struct{})
-	go func() {
-		<-r.Context().Done()
-		logger.Logger.Info("ws: request context closed, terminating connection")
-		conn.Close()
-		close(done)
-	}()
+        conn.Close()
+    }()
 
-	for {
-		select {
-		case <-done:
-			return http.StatusOK, nil
+    done := make(chan struct{})
+    go func() {
+        <-r.Context().Done()
+        logger.Logger.Info("ws: request context closed, terminating connection")
+        conn.Close()
+        close(done)
+    }()
 
-		default:
-			msgType, msg, err := conn.ReadMessage()
-			if err != nil {
-				// no error in this case!
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					return http.StatusOK, nil
-				}
-				return http.StatusInternalServerError, fmt.Errorf("conn.ReadMessage(): %v", err)
-			}
+    for {
+        select {
+        case <-done:
+            return http.StatusOK, nil
 
-			logger.Logger.Debugf("Received: type:%d, msg:%s\n", msgType, string(msg))
+        default:
+            msgType, msg, err := conn.ReadMessage()
+            if err != nil {
+                if websocket.IsCloseError(err,
+                    websocket.CloseNormalClosure,
+                    websocket.CloseGoingAway,
+                ) {
+                    return http.StatusOK, nil
+                }
+                return http.StatusInternalServerError, fmt.Errorf("conn.ReadMessage(): %v", err)
+            }
 
-			//update client visit time
-			client.mx.Lock()
-			client.VisitedAt = time.Now()
-			client.mx.Unlock()
+            logger.Logger.Debugf("Received: type:%d, msg:%s\n", msgType, string(msg))
 
-			resp := SrvResponse{EventID: "Response"}
+            // update client visit time
+            client.mx.Lock()
+            client.VisitedAt = time.Now()
+            client.mx.Unlock()
 
-			clientMsg := ClientMessage{}
-			if err := json.Unmarshal(msg, &clientMsg); err != nil {
-				resp.Error = NewSrvResponseError(http.StatusInternalServerError, "json.Unmarshal client message", s.IsProduction, err)
-				s.SendMessage(conn, &resp)
-				continue
-			}
-			if clientMsg.Func == "" {
-				resp.Error = NewSrvResponseError(http.StatusInternalServerError, "func is not defined", s.IsProduction, err)
-				s.SendMessage(conn, &resp)
-				continue
-			}
-			// Service.Method format
-			service := strings.Split(clientMsg.Func, ".")
-			if len(service) != 2 {
-				resp.Error = NewSrvResponseError(http.StatusInternalServerError, "func structure is bad", s.IsProduction, err)
-				s.SendMessage(conn, &resp)
-				continue
-			}
+            resp := SrvResponse{EventID: "Response"}
 
-			params, err := api.UnmarshalParams(clientMsg.Payload)
-			if err != nil {
-				resp.Error = NewSrvResponseError(http.StatusInternalServerError, "api.UnmarshalParams", s.IsProduction, err)
-				s.SendMessage(conn, &resp)
-				continue
-			}
+            clientMsg := ClientMessage{}
+            if err := json.Unmarshal(msg, &clientMsg); err != nil {
+                resp.Error = NewSrvResponseError(
+                    http.StatusInternalServerError,
+                    "json.Unmarshal client message",
+                    s.IsProduction, err,
+                )
+                _ = s.SendMessage(client, &resp)
+                continue
+            }
 
-			// check service.method.role permission service[0].service[1]
-			if s.isMethodAllowed != nil {
-				if err := s.isMethodAllowed(sess, service[0]+service[1]); err != nil {
-					if err := conn.WriteMessage(
-						websocket.CloseMessage,
-						websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "method is not allowed"),
-					); err != nil {
-						logger.Logger.Errorf("conn.WriteMessage(): %v", err)
-					}
-					return http.StatusUnauthorized, fmt.Errorf("isMethodAllowed(%s.%s)", service[0], service[1])
-				}
-			}
+            if clientMsg.Func == "" {
+                resp.Error = NewSrvResponseError(
+                    http.StatusInternalServerError,
+                    "func is not defined",
+                    s.IsProduction, nil,
+                )
+                _ = s.SendMessage(client, &resp)
+                continue
+            }
 
-			methDuration := defMaxMethodCallDuration
-			if s.MaxMethodCallDuration != 0 {
-				methDuration = s.MaxMethodCallDuration
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), methDuration)
+            // Service.Method
+            service := strings.Split(clientMsg.Func, ".")
+            if len(service) != 2 {
+                resp.Error = NewSrvResponseError(
+                    http.StatusInternalServerError,
+                    "func structure is bad",
+                    s.IsProduction, nil,
+                )
+                _ = s.SendMessage(client, &resp)
+                continue
+            }
 
-			var resHTTP int
-			resHTTP, resp.Payload, err = controllers.CallServiceMethod(
-				ctx,
-				service[0],
-				service[1],
-				params,
-				&api.ServiceContext{DB: database.DB, Session: sess, QueryID: clientMsg.QueryID,},
-			)
-			if err != nil {
-				resp.Error = NewSrvResponseError(resHTTP, "controllers.CallServiceMethod", s.IsProduction, err)
-				s.SendMessage(conn, &resp)
-				cancel()
-				continue
-			}
+            params, err := api.UnmarshalParams(clientMsg.Payload)
+            if err != nil {
+                resp.Error = NewSrvResponseError(
+                    http.StatusInternalServerError,
+                    "api.UnmarshalParams",
+                    s.IsProduction, err,
+                )
+                _ = s.SendMessage(client, &resp)
+                continue
+            }
 
-			// do not send if no response!
-			if resp.Payload != nil {
-				s.SendMessage(conn, &resp)
-			}
+            // permission check
+            if s.isMethodAllowed != nil {
+                if err := s.isMethodAllowed(sess, service[0]+service[1]); err != nil {
+                    conn.WriteMessage(
+                        websocket.CloseMessage,
+                        websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "method is not allowed"),
+                    )
+                    return http.StatusUnauthorized,
+                        fmt.Errorf("isMethodAllowed(%s.%s)", service[0], service[1])
+                }
+            }
 
-			cancel()
-		}
-	}
+            methDuration := defMaxMethodCallDuration
+            if s.MaxMethodCallDuration != 0 {
+                methDuration = s.MaxMethodCallDuration
+            }
+            ctx, cancel := context.WithTimeout(context.Background(), methDuration)
+
+            var resHTTP int
+            resHTTP, resp.Payload, err = controllers.CallServiceMethod(
+                ctx,
+                service[0],
+                service[1],
+                params,
+                &api.ServiceContext{
+                    DB:      database.DB,
+                    Session: sess,
+                    QueryID: clientMsg.QueryID,
+                },
+            )
+
+            if err != nil {
+                resp.Error = NewSrvResponseError(
+                    resHTTP,
+                    "controllers.CallServiceMethod",
+                    s.IsProduction, err,
+                )
+                _ = s.SendMessage(client, &resp)
+                cancel()
+                continue
+            }
+
+            if resp.Payload != nil {
+                if err := s.SendMessage(client, &resp); err != nil {
+                    logger.Logger.Errorf("error sending response: %v", err)
+                }
+            }
+
+            cancel()
+        }
+    }
 }

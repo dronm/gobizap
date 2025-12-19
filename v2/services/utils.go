@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"encoding/json"
 
 	crud "github.com/dronm/crudifier"
 	crudMd "github.com/dronm/crudifier/metadata"
@@ -373,7 +374,7 @@ func FileExists(fileName string) bool {
 	return false
 }
 
-func PublishEvent(ctx context.Context, sessionID string, eventID string, params string) error {
+func PublishEvent(ctx context.Context, sessionID string, eventID string, params any) error {
 	poolConn, connID, err := database.DB.GetPrimary()
 	if err != nil {
 		return fmt.Errorf("GetPrimary() failed: %v", err)
@@ -384,11 +385,40 @@ func PublishEvent(ctx context.Context, sessionID string, eventID string, params 
 	return PublishEventWithConn(ctx, conn, sessionID, eventID, params)
 }
 
-func PublishEventWithConn(ctx context.Context, conn *pgx.Conn, sessionID string, eventID string, params string) error {
-	_, err := conn.Exec(ctx, `SELECT pg_notify($1, $2)`, eventID, params)
-	return err
-}
+func PublishEventWithConn(ctx context.Context, conn *pgx.Conn, sessionID string, eventID string, params any) error {
+    // Handle nil case first
+    if params == nil {
+        _, err := conn.Exec(ctx, `SELECT pg_notify($1, $2)`, eventID, nil)
+        return err
+    }
 
+    // Use reflection to check for nil pointers
+    v := reflect.ValueOf(params)
+    for v.Kind() == reflect.Ptr {
+        if v.IsNil() {
+            _, err := conn.Exec(ctx, `SELECT pg_notify($1, $2)`, eventID, nil)
+            return err
+        }
+        v = v.Elem()
+    }
+
+    var paramsEnc []byte
+    var err error
+
+    if v.Kind() == reflect.Struct {
+        // Only marshal structs and pointer-to-structs
+        paramsEnc, err = json.Marshal(params)
+        if err != nil {
+            return fmt.Errorf("json.Marshal(): %v", err)
+        }
+    } else {
+        // For non-structs, convert to string directly
+        paramsEnc = []byte(fmt.Sprintf("%v", params))
+    }
+
+    _, err = conn.Exec(ctx, `SELECT pg_notify($1, $2)`, eventID, string(paramsEnc))
+    return err
+}
 
 func HandlePgxError(err error) error {
 	//chech sqlState

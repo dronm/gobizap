@@ -228,25 +228,24 @@ func (s *WSServer) UnsubscribeFromEvent(sessionID, eventID string) error {
 	return nil
 }
 
-func (s *WSServer) PublishEvent(publisherID, eventID string, payload any) error {
-	msg := SrvResponse{
-		QueryID: "", // Set this if needed
-		EventID: eventID,
-		Payload: payload,
-		Error:   nil,
-	}
+func (s *WSServer) removeConn(clientID string, target *Client) {
+    s.clientsMx.Lock()
+    defer s.clientsMx.Unlock()
 
-	s.clientsMx.RLock()
-	defer s.clientsMx.RUnlock()
+    list := s.clients[clientID]
+    out := list[:0]
+    for _, c := range list {
+        if c == target {
+            c.Conn.Close()
+        } else {
+            out = append(out, c)
+        }
+    }
 
-	for _, clientList := range s.clients {
-		for _, client := range clientList {
-			if client.ID == publisherID {
-				continue
-			}
-			s.SendMessage(client.Conn, &msg)
-		}
-	}
-
-	return nil
+    if len(out) == 0 {
+        delete(s.clients, clientID)
+    } else {
+        s.clients[clientID] = out
+    }
 }
+

@@ -16,7 +16,7 @@ func CorsMiddleware(baseURL string) gin.HandlerFunc {
 		logger.Logger.Debugf("CorsMiddleware: origin: %s, baseURL: %s, IsSame: %v", origin, baseURL, origin==baseURL)
 
 		if origin == baseURL {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)//
 			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, X-Requested-With")
 			c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length, Content-Type")
