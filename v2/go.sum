@@ -11,6 +11,8 @@ github.com/dronm/crudifier v0.0.0-20250918130344-26300cc670de/go.mod h1:CNvSKGZf
 github.com/dronm/ds v1.0.3 h1:d2Yx0GzM7wNpieU2oT7ET9QaRryYHBUKT6Dq1UIvE9g=
 github.com/dronm/ds v1.0.3/go.mod h1:0YmvEIhhsl4dr36Pu560OlExGJQZlK6PYzyCDxolaWI=
 github.com/dronm/session v0.0.0-20251018002339-3b4518905bb0/go.mod h1:iYtKRo/WExFySwo1tru2LPN9c6MlJNQ8PjsV2H3SF0Y=
+github.com/dronm/session v0.0.0-20251220003740-37004b1b0446 h1:vWHI1FIn2WJ6o8b/EkZgu48TiXiCIhTFvk6pegqmpL0=
+github.com/dronm/session v0.0.0-20251220003740-37004b1b0446/go.mod h1:eN4Xbvf0ouuz9jRP7aKSJrvC5eS6SVPcGWaYmc7Bjs4=
 github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcPfT7nKyLpA0lbSSk=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.10.1/go.mod h1:4PMNQiOhvDRa013RKVbsiNwoyezlm2rm0uX/T7kzp5Y=

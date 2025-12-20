@@ -10,7 +10,7 @@ go 1.24.3
 
 require (
 	github.com/dronm/crudifier v0.0.0-20250918130344-26300cc670de
-	github.com/dronm/session v0.0.0-20251018002339-3b4518905bb0
+	github.com/dronm/session v0.0.0-20251220003740-37004b1b0446
 	github.com/gin-gonic/gin v1.10.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.2
